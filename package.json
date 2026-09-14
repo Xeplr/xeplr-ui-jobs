@@ -1,6 +1,6 @@
 {
   "name": "@xeplr/ui-jobs",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "The screens for @xeplr/jobs — schedule, run, pause and watch jobs — as routes a host app registers, or a standalone app",
   "type": "module",
   "main": "src/index.jsx",
