@@ -115,7 +115,7 @@ Every call goes through `authFetch`, which prefixes the base URL `@xeplr/ui-acco
 - **Jobs table** — name, state (Running, Paused, Manual only, Scheduled), schedule in words (`describeCron`, else "Custom"), next run ("in 3 hours", "due now"), last run, an **on / paused switch**, and **Run now**, **Edit**, **Delete** (confirmed; run history is kept). Search matches name, description and action; sort by name, next run or action.
 - **Run history** — the last-run cell opens that job's newest 50 runs, each with its log.
 - **Recent runs** — the 12 latest runs across all jobs, with duration, trigger and error message.
-- **Live updates** (on by default) — polls `GET /jobs/active` every **2 s** while anything runs and every **15 s** otherwise, so a cron run that starts by itself appears; when the last run finishes, the page reloads once to pick up the final status. Rows show rows read (`1.2K rows`) and flag a run with no progress update for 2 minutes. Uncheck to stop polling.
+- **Live updates** (on by default) — polls `GET /jobs/active` every **2 s** while anything runs and every **15 s** otherwise, so a cron run that starts by itself appears; when the last run finishes, the page reloads once to pick up the final status. Rows show rows read and when the run last made progress (`1.2K rows · last seen 8 s ago`); a run with no progress for **5 minutes** (`SILENT_MS`) reads "Not responding", because the work beats on every batch it moves. Uncheck to stop polling.
 
 State shows **Running** over **Paused**: a pause takes effect at the next pick, and "paused" over a live run invites starting a second one. A job with no schedule has its switch off and disabled — there is nothing for the scheduler to pick.
 

@@ -6,7 +6,8 @@
 // is running right now, a plain-English reading of a cron that says the
 // opposite of the cron.
 import {
-  jobState, describeCron, nextRunLabel, durationLabel, latestByJob, prepareJobs
+  jobState, describeCron, nextRunLabel, durationLabel, latestByJob, prepareJobs,
+  progressStale, lastSeenLabel, SILENT_MS
 } from '../src/pages/jobsList.js'
 
 const results = []
@@ -116,6 +117,20 @@ console.log('\nsearch and sort')
   check('...and the action', ids({ query: 'db-' }) === '3,1')
   check('an empty query keeps everything', prepareJobs(JOBS, {}).length === 3)
   check('no jobs is not a crash', prepareJobs(undefined, {}).length === 0)
+}
+
+
+// A run is "not responding" after five minutes without progress — the same
+// rule the host applies to its action runs.
+{
+  const at = (msAgo) => ({ progress: { rowsRead: 10, at: new Date(Date.parse('2026-09-28T10:00:00Z') - msAgo).toISOString() } })
+  const T = Date.parse('2026-09-28T10:00:00Z')
+  check('five minutes', SILENT_MS === 300000)
+  check('four minutes quiet: still responding', progressStale(at(4 * 60000), T) === false)
+  check('six minutes quiet: not responding', progressStale(at(6 * 60000), T) === true)
+  check('last seen, seconds', lastSeenLabel(at(8000), T) === 'last seen 8 s ago')
+  check('last seen, minutes', lastSeenLabel(at(7 * 60000), T) === 'last seen 7 min ago')
+  check('no progress yet: nothing to say', lastSeenLabel({}, T) === null && progressStale({}, T) === false)
 }
 
 const failed = results.filter(([, ok]) => !ok)

@@ -186,11 +186,28 @@ export function formatCount(n) {
  * what lets a row say "no update for 9m" instead of showing a stale count as
  * though it were current.
  *
- * Advisory only — a movement legitimately goes quiet during a long final
- * drain. It is a prompt to look, not a verdict.
+ * Five minutes (SILENT_MS): the work beats on every batch it moves, so a
+ * run silent that long is not running, whatever its status says.
  */
-export function progressStale(occurrence, now = Date.now(), toleranceMs = 120000) {
+export function progressStale(occurrence, now = Date.now(), toleranceMs = SILENT_MS) {
   const at = occurrence && occurrence.progress && occurrence.progress.at
   if (!at) return false
   return now - new Date(at).getTime() > toleranceMs
+}
+
+/**
+ * How long a run may go without progress before it is treated as not
+ * running: five minutes, the same rule the host applies to the action runs
+ * it records (a job's progress IS its action's progress).
+ */
+export const SILENT_MS = 5 * 60 * 1000
+
+/** "last seen 8 s ago" / "last seen 7 min ago" from progress.at, or null. */
+export function lastSeenLabel(occurrence, now = Date.now()) {
+  const at = occurrence && occurrence.progress && occurrence.progress.at
+  if (!at) return null
+  const secs = Math.max(0, Math.round((now - new Date(at).getTime()) / 1000))
+  if (secs < 60) return `last seen ${secs} s ago`
+  if (secs < 3600) return `last seen ${Math.floor(secs / 60)} min ago`
+  return `last seen ${Math.floor(secs / 3600)} h ago`
 }

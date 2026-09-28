@@ -8,7 +8,7 @@ import {
 } from '../api/jobs.js'
 import {
   jobState, STATE_LABELS, describeCron, nextRunLabel, durationLabel,
-  latestByJob, prepareJobs, progressLabel, progressStale
+  latestByJob, prepareJobs, progressLabel, progressStale, lastSeenLabel
 } from './jobsList.js'
 import CronScheduleField from '../components/CronScheduleField.jsx'
 import './Jobs.css'
@@ -1069,10 +1069,12 @@ export default function Jobs({ breadcrumb: Breadcrumb, uploadLink, connectLink }
                         <span
                           className={progressStale(liveRun) ? 'jb-progress jb-progress--stale' : 'jb-progress'}
                           title={progressStale(liveRun)
-                            ? 'No update recently — the run may be in a long final write, or the worker may have died.'
+                            ? 'No progress for five minutes: the worker doing this has most likely died.'
                             : `Rows read so far. Last update ${new Date(liveRun.progress.at).toLocaleTimeString()}.`}
                         >
+                          {progressStale(liveRun) ? 'Not responding · ' : ''}
                           {progressLabel(liveRun)}
+                          {lastSeenLabel(liveRun) ? ` · ${lastSeenLabel(liveRun)}` : ''}
                         </span>
                       )}
                     </td>
