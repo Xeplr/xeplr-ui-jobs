@@ -1,6 +1,7 @@
 import { Route } from 'react-router-dom';
 import JobsPage from './pages/Jobs.jsx';
 import { configureJobsApi, configureOptionSources } from './api/jobs.js';
+import { configureChainsApi } from './api/jobChains.js';
 import { ROUTES } from './routes.js';
 
 /**
@@ -57,18 +58,18 @@ import { ROUTES } from './routes.js';
  *   navigate back up to.
  * @param {JSX.Element|string} [config.uploadLink] - a link to wherever the host
  *   loads files, named in the empty state.
- * @param {JSX.Element} [config.connectLink] - a link to the workflow canvas,
- *   for connecting jobs so one starts when another finishes. Supplied by the
- *   host because this package must not import @xeplr/workflow — workflow
- *   already calls jobs over HTTP at run time, and importing its UI here would
- *   close that into a circular dependency between two packages that are
- *   deliberately installable on their own.
+ * @param {string|null} [config.chainsApiBase=null] - where the WORKFLOW API
+ *   is mounted (e.g. '/workflow'), which keeps each job's "After this job"
+ *   rules. Jobs never start each other — the workflow engine does every
+ *   hand-off — so without it the editor shows no "After this job" step.
+ *   Talked to over HTTP only: this package does not import workflow.
  * @returns {{ routes: JSX.Element[], path: string }}
  */
 export function registerJobsUI(config) {
   config = config || {};
   if (config.apiBase !== undefined) configureJobsApi({ base: config.apiBase });
   configureOptionSources(config.optionSources);
+  configureChainsApi(config.chainsApiBase);
 
   var path = ROUTES.jobs(config.basePath);
 

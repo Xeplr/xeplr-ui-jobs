@@ -1,0 +1,19 @@
+/* "After this job" — the rules list in the job editor. */
+.jb-chain { display: grid; gap: 10px; }
+.jb-chain-toggle { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--ink, #1a1a19); cursor: pointer; }
+.jb-chain-rules { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.jb-chain-rule {
+  padding: 12px 14px; background: var(--plane, #f7f7f5);
+  border: 1px solid var(--hair, #e2e1d9); border-radius: 11px;
+}
+.jb-chain-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.jb-chain-n { font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted, #6b6a63); }
+.jb-chain-tools { display: flex; gap: 6px; }
+.jb-chain-tools button, .jb-chain-add {
+  padding: 4px 10px; font: inherit; font-size: 12px; color: var(--ink, #1a1a19);
+  background: var(--surface, #ffffff); border: 1px solid var(--hair, #e2e1d9); border-radius: 7px; cursor: pointer;
+}
+.jb-chain-tools button:disabled { opacity: .45; cursor: default; }
+.jb-chain-add { justify-self: start; font-size: 13px; padding: 6px 12px; }
+.jb-chain-json { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; resize: vertical; }
+.jb-chain-fields { margin: 6px 0 8px; padding-left: 18px; font-size: 13px; color: var(--muted, #6b6a63); display: grid; gap: 3px; }

@@ -84,11 +84,11 @@ There is no embedded / standalone switch: `registerJobsUI()` returns `<Route>` e
 | `optionSources` | `{}` | where a kind of thing is listed, for action inputs with `optionsFrom` — see below |
 | `breadcrumb` | — | a component, rendered as `<Breadcrumb items={[{ label: 'Jobs' }]} />` above the page |
 | `uploadLink` | — | element or string, shown in the page footnote ("Loading a file into a table is recorded separately — see …"); without it the footnote says "the upload screen" |
-| `connectLink` | — | element shown in the header before **+ New job** — a link to a workflow canvas for chaining jobs. Passed in rather than imported, so this package does not depend on workflow (which already calls jobs over HTTP) |
+| `chainsApiBase` | `null` | where the **workflow** API is mounted (e.g. `'/workflow'`). It keeps each job's "After this job" rules (`/job-chains/:jobId`), because jobs never start each other: the workflow engine does every hand-off. `null` (no workflow on the install) leaves the editor's **After this job** step out. HTTP only; this package does not import workflow |
 
 Returns `{ routes, path }`: one `<Route>` at `path`, and the path itself so your navigation does not retype it.
 
-`apiBase` and `optionSources` are module-level settings — the last `registerJobsUI()` call wins.
+`apiBase`, `optionSources` and `chainsApiBase` are module-level settings — the last `registerJobsUI()` call wins.
 
 ## Requests
 
@@ -107,6 +107,7 @@ Every call goes through `authFetch`, which prefixes the base URL `@xeplr/ui-acco
 | pause / resume | `POST /jobs/:id/pause`, `POST /jobs/:id/resume` |
 | a run's log lines | `GET /logs?referenceId=<occurrenceId>` — **not** under `apiBase` |
 | an option list | `GET <source.url>?limit=0` — under `apiBase` |
+| a job's "After this job" rules | `GET` / `PUT <chainsApiBase>/job-chains/:jobId` with `{ rules, jobName }` — **not** under `apiBase` |
 
 `/logs` is the platform's generic log route, not part of `@xeplr/jobs`. A host without it answers 404 and the panel shows an error in place of the log. Log lines are keyed by occurrence id because an action writes under the `referenceId` it is handed.
 
@@ -121,11 +122,19 @@ State shows **Running** over **Paused**: a pause takes effect at the next pick, 
 
 ### The editor
 
-Three steps, all reachable at any time, with **Save job** on each:
+Three steps (four with `chainsApiBase`), all reachable at any time, with **Save job** on each:
 
 1. **Job** — name, description, action.
 2. **Inputs** — a control per field of the action's `inputSchema`: a select for `options`, true/false for `boolean`, a number input, a JSON textarea for `object` / `array` (invalid JSON blocks the save), text otherwise. Fields marked `system: true` are never shown — the server fills them, and rendering them would ask for a credential. Optional fields with a `default` are under **Advanced**, whose summary lists their values. Values are converted to the declared types on save, since `@xeplr/schema-handler` rejects `"1000"` for a number.
 3. **Schedule** — cron (`CronScheduleField`), status, **Start from** (`startAt`), **Retry on failure** (0–3, default 0), **Give up after** (`timeoutMinutes`, blank = server default of 30).
+4. **After this job** (`JobChainSection`, `useJobChainController`, `lib/jobChainModel.js`) — "Run another job when this one finishes", then rules checked top to bottom, first match wins. Each rule has:
+   - **If**: a JSON condition, e.g. `{ "field": "status", "op": "=", "value": "success" }`, or `{ "all": [ … ] }` / `{ "any": [ … ] }`. Empty means "otherwise" and must come last.
+   - **Run**: another job.
+   - Optional **inputs** for the next job and **carry** for later ones, binding `{output.x}`, `{carry.x}`, `{window.to}`.
+
+   The period this job ran for passes to the next job by itself. Text that is not JSON, a missing job, or an "otherwise" that is not last is refused before anything is saved; the server checks the meaning and names the rule. An existing job's rules are saved before the job, and a new job's right after it (it needs its id).
+
+With `chainsApiBase`, **Inputs** also has **From the job before**: tickboxes for the inputs another job may fill when it runs this one (the job's `acceptsInputs`). No field is ticked by default, and a field naming a connection is never offered.
 
 A new job with a schedule defaults to **Paused**, so it can be written now and started later. A job with no schedule is saved as `ready` and runs only when triggered.
 
@@ -181,7 +190,7 @@ Styles read `--accent`, `--surface`, `--ink`, `--muted`, `--hair`, `--plane` and
 npm test
 ```
 
-Plain Node scripts, no framework (`test/run.mjs` runs each `*.test.*` file): job state, `describeCron`, next-run and duration labels, latest run per job, search and sort.
+Plain Node scripts, no framework (`test/run.mjs` runs each `*.test.*` file): job state, `describeCron`, next-run and duration labels, latest run per job, search and sort; and the "After this job" form's rules: text to rules and back, what is refused, what the job before may fill (`jobChainModel.test.mjs`).
 
 ## License
 

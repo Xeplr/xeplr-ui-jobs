@@ -11,6 +11,9 @@ import {
   latestByJob, prepareJobs, progressLabel, progressStale, lastSeenLabel
 } from './jobsList.js'
 import CronScheduleField from '../components/CronScheduleField.jsx'
+import JobChainSection from '../components/JobChainSection.jsx'
+import { useJobChainController } from '../useJobChainController.js'
+import { acceptableFields, toggleAccepted } from '../lib/jobChainModel.js'
 import './Jobs.css'
 
 // SCHEDULED JOBS — @xeplr/jobs, in this product's chrome.
@@ -254,11 +257,14 @@ function JobRuns({ jobId, refreshKey }) {
 // always available — someone editing a live job to change its cron should not
 // have to walk past its name and its inputs to get there. The steps are for
 // grouping, not for gatekeeping.
-const STEPS = [
+const BASE_STEPS = [
   { key: 'job', label: 'Job', hint: 'What it is, and what it runs' },
   { key: 'inputs', label: 'Inputs', hint: 'What that action needs' },
   { key: 'schedule', label: 'Schedule', hint: 'When, and what if it goes wrong' }
 ]
+
+// Shown only when the host has a workflow API — the rules are kept there.
+const AFTER_STEP = { key: 'after', label: 'After this job', hint: 'What runs when this one finishes' }
 
 /**
  * Fields a PERSON fills in.
@@ -489,7 +495,7 @@ function ActionInput({ field, value, onChange, inputs }) {
 
 // The editor. A panel rather than a route: a job is a handful of fields, and a
 // page you navigate to and back from for those is three navigations too many.
-function JobEditor({ job, actions, onCancel, onSaved }) {
+function JobEditor({ job, jobs, actions, onCancel, onSaved }) {
   const [draft, setDraft] = useState(() => ({
     name: job?.name || '',
     description: job?.description || '',
@@ -515,10 +521,15 @@ function JobEditor({ job, actions, onCancel, onSaved }) {
     // at save — see fromFieldValues.
     inputs: Object.fromEntries(
       Object.entries(job?.inputs || {}).map(([k, v]) => [k, toFieldValue(v)])
-    )
+    ),
+    // Inputs the job BEFORE this one in a chain may fill (@xeplr/jobs'
+    // acceptsInputs). `window` always may, so it is not listed.
+    acceptsInputs: Array.isArray(job?.acceptsInputs) ? job.acceptsInputs : []
   }))
   const [saving, setSaving] = useState(false)
   const [step, setStep] = useState(0)
+  const chain = useJobChainController(job?.id || null)
+  const STEPS = chain.enabled ? [...BASE_STEPS, AFTER_STEP] : BASE_STEPS
 
   const action = actions.find((a) => a.name === draft.actionName) || null
   const patch = (p) => setDraft((d) => ({ ...d, ...p }))
@@ -534,12 +545,26 @@ function JobEditor({ job, actions, onCancel, onSaved }) {
       raiseSnackbar(`Not valid JSON: ${broken.join(', ')}`, { design: 'error' })
       return
     }
+    // The rules are checked BEFORE anything is saved, so a typo in one does
+    // not leave a job saved and its chain not.
+    const chainCheck = chain.check(job?.id)
+    if (chainCheck.problems.length) {
+      setStep(STEPS.length - 1)
+      raiseSnackbar(chainCheck.problems.join(' '), { design: 'error' })
+      return
+    }
 
     setSaving(true)
     try {
-      await saveJob({
+      const name = draft.name.trim() || 'Untitled job'
+      // AN EXISTING JOB'S RULES GO FIRST: the server is the one that checks
+      // what a condition means, and a refusal there should leave the job as
+      // it was rather than half-saved. A new job has no id to hang rules on
+      // until it is saved, so its rules follow it.
+      if (job?.id) await chain.save(job.id, name)
+      const res = await saveJob({
         ...(job?.id ? { id: job.id } : {}),
-        name: draft.name.trim() || 'Untitled job',
+        name: name,
         description: draft.description || '',
         actionName: draft.actionName,
         // Trimmed to null rather than '': the model treats an absent schedule
@@ -558,8 +583,19 @@ function JobEditor({ job, actions, onCancel, onSaved }) {
         timeoutMinutes: draft.timeoutMinutes === '' ? null : Number(draft.timeoutMinutes),
         // Converted back to the types the action declared. Sending the raw
         // strings is what made every number/boolean field fail validation.
-        inputs: fromFieldValues(action, draft.inputs)
+        inputs: fromFieldValues(action, draft.inputs),
+        // Only names that are still fields of the chosen action.
+        acceptsInputs: draft.acceptsInputs.filter((n) => acceptableFields(fields).some((f) => f.name === n))
       })
+      if (!job?.id) {
+        const newId = res && Array.isArray(res.updatedIds) ? res.updatedIds[0] : null
+        try {
+          await chain.save(newId, name)
+        } catch (err) {
+          // The job exists now; reopening it shows the rules to fix.
+          raiseSnackbar(`The job was saved, but its "After this job" rules were not: ${err.message}`, { design: 'error' })
+        }
+      }
       onSaved()
     } catch (err) {
       raiseSnackbar(err.message || 'Could not save the job', { design: 'error' })
@@ -646,9 +682,35 @@ function JobEditor({ job, actions, onCancel, onSaved }) {
                 onChange={(v) => patch({ inputs: { ...draft.inputs, [f.name]: v } })}
               />
             )
+            const acceptable = acceptableFields(fields)
             return (
               <>
                 <div className="jb-grid">{primary.map(render)}</div>
+                {chain.enabled && acceptable.length > 0 && (
+                  /* WHAT THE JOB BEFORE THIS ONE MAY FILL. Off for every
+                     field until ticked: a chain may otherwise only pass the
+                     period (window), never this job's SQL or connection. */
+                  <details className="jb-advanced" open={draft.acceptsInputs.length > 0}>
+                    <summary>
+                      From the job before
+                      <span className="jb-dim">
+                        {' — '}
+                        {draft.acceptsInputs.length ? draft.acceptsInputs.map((n) => fieldLabel(acceptable.find((f) => f.name === n) || { name: n })).join(' · ') : 'only the period'}
+                      </span>
+                    </summary>
+                    <p className="jb-help">
+                      When another job runs this one, it always passes the period it ran for. Tick the inputs
+                      it may also fill; everything else stays as saved here.
+                    </p>
+                    {acceptable.map((f) => (
+                      <label key={f.name} className="jb-chain-toggle">
+                        <input type="checkbox" checked={draft.acceptsInputs.includes(f.name)}
+                          onChange={(e) => patch({ acceptsInputs: toggleAccepted(draft.acceptsInputs, f.name, e.target.checked) })} />
+                        {fieldLabel(f)}
+                      </label>
+                    ))}
+                  </details>
+                )}
                 {advanced.length > 0 && (
                   /* COLLAPSED, NOT HIDDEN. The summary names every field in
                      here and its current value, so closing it never conceals
@@ -770,6 +832,11 @@ function JobEditor({ job, actions, onCancel, onSaved }) {
         </>
       )}
 
+      {/* ── 4. What runs next ────────────────────────────────────────────── */}
+      {chain.enabled && step === STEPS.length - 1 && STEPS[step].key === 'after' && (
+        <JobChainSection chain={chain} jobs={jobs} jobId={job?.id} />
+      )}
+
       <div className="jb-editor-actions">
         <button type="button" onClick={onCancel}>Cancel</button>
         <span className="jb-editor-nav">
@@ -802,8 +869,6 @@ function JobEditor({ job, actions, onCancel, onSaved }) {
  * @param {Function} [props.breadcrumb] - the host's breadcrumb component
  * @param {JSX.Element|string} [props.uploadLink] - a link to wherever the host
  *   loads files, if it has such a screen
- * @param {JSX.Element} [props.connectLink] - a link to the workflow canvas,
- *   for connecting jobs to each other so one starts when another finishes.
  *
  *   SUPPLIED BY THE HOST, not imported. This package must not depend on
  *   @xeplr/workflow: workflow already calls jobs — over HTTP, at run time, to
@@ -817,7 +882,7 @@ function JobEditor({ job, actions, onCancel, onSaved }) {
  *   the link. Omitted, nothing is rendered — the screen is complete without
  *   it, exactly as uploadLink is.
  */
-export default function Jobs({ breadcrumb: Breadcrumb, uploadLink, connectLink } = {}) {
+export default function Jobs({ breadcrumb: Breadcrumb, uploadLink } = {}) {
   const [jobs, setJobs] = useState(null)
   const [runs, setRuns] = useState([])
   const [actions, setActions] = useState([])
@@ -988,10 +1053,6 @@ export default function Jobs({ breadcrumb: Breadcrumb, uploadLink, connectLink }
               <span className="jb-live-count">{active.length} running</span>
             )}
           </label>
-          {/* Before "+ New job", because connecting jobs is something you do
-              to the ones already listed — a secondary action ON this screen's
-              content, where the primary one creates more of it. */}
-          {connectLink}
           <button type="button" className="jb-primary" onClick={() => setEditing({})}>+ New job</button>
         </div>
       </header>
@@ -1002,6 +1063,7 @@ export default function Jobs({ breadcrumb: Breadcrumb, uploadLink, connectLink }
       {editing && (
         <JobEditor
           job={editing.id ? editing : null}
+          jobs={jobs || []}
           actions={actions}
           onCancel={() => setEditing(null)}
           onSaved={() => { setEditing(null); load() }}
