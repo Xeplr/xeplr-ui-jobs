@@ -12,6 +12,8 @@ import {
 } from './jobsList.js'
 import CronScheduleField from '../components/CronScheduleField.jsx'
 import JobChainSection from '../components/JobChainSection.jsx'
+import ParametersField from '../components/ParametersField.jsx'
+import { useRunContract } from '../useRunContract.js'
 import { useJobChainController } from '../useJobChainController.js'
 import { acceptableFields, toggleAccepted } from '../lib/jobChainModel.js'
 import './Jobs.css'
@@ -274,8 +276,14 @@ const AFTER_STEP = { key: 'after', label: 'After this job', hint: 'What runs whe
  * would be asking somebody to type a password into a form, which is exactly
  * what storing an id instead was for.
  */
-function visibleFields(action) {
-  return (action?.inputSchema || []).filter((f) => !f.system)
+function visibleFields(action, inputs) {
+  // `hidden` (an action's hint): left out unless this job already holds one,
+  // so nothing saved is ever invisible.
+  const held = (f) => {
+    const v = inputs?.[f.name]
+    return v !== undefined && v !== '' && v !== '{}' && v !== '[]'
+  }
+  return (action?.inputSchema || []).filter((f) => !f.system && (!f.hidden || held(f)))
 }
 
 // ── labels ────────────────────────────────────────────────────────────────
@@ -435,8 +443,13 @@ function RemoteSelect({ field, value, onChange, dependsOnValue }) {
 }
 
 /** One input, rendered as whatever its declared type actually is. */
-function ActionInput({ field, value, onChange, inputs }) {
+function ActionInput({ field, value, onChange, inputs, contract }) {
   const id = `jb-in-${field.name}`
+
+  // Rows rather than JSON, for an input the action marks as parameters.
+  if (field.control === 'parameters') {
+    return <ParametersField field={field} value={value} onChange={onChange} contract={contract || []} />
+  }
   const common = { id, value, onChange: (e) => onChange(e.target.value) }
 
   // A host-provided list, when the host has one. Without a source configured
@@ -529,6 +542,7 @@ function JobEditor({ job, jobs, actions, onCancel, onSaved }) {
   const [saving, setSaving] = useState(false)
   const [step, setStep] = useState(0)
   const chain = useJobChainController(job?.id || null)
+  const contract = useRunContract()
   const STEPS = chain.enabled ? [...BASE_STEPS, AFTER_STEP] : BASE_STEPS
 
   const action = actions.find((a) => a.name === draft.actionName) || null
@@ -604,7 +618,7 @@ function JobEditor({ job, jobs, actions, onCancel, onSaved }) {
     }
   }
 
-  const fields = visibleFields(action)
+  const fields = visibleFields(action, draft.inputs)
 
   return (
     <form className="jb-editor" onSubmit={submit}>
@@ -678,6 +692,7 @@ function JobEditor({ job, jobs, actions, onCancel, onSaved }) {
                 key={f.name}
                 field={f}
                 inputs={draft.inputs}
+                contract={contract}
                 value={draft.inputs?.[f.name] ?? ''}
                 onChange={(v) => patch({ inputs: { ...draft.inputs, [f.name]: v } })}
               />

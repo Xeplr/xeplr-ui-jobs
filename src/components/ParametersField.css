@@ -1,0 +1,20 @@
+/* Parameters as rows — name ← where its value comes from. Widths set here
+   because the editor gives every input full width. */
+.jb-params { display: grid; gap: 8px; margin: 6px 0 8px; }
+.jb-param {
+  display: grid; align-items: center; gap: 8px;
+  grid-template-columns: minmax(140px, 220px) auto minmax(180px, 240px) minmax(0, 1fr) auto;
+}
+.jb-editor .jb-param input, .jb-editor .jb-param select { width: 100%; min-width: 0; }
+.jb-param-name { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
+.jb-param-arrow { color: var(--muted, #6b6a63); }
+.jb-param-gap { min-width: 0; }
+.jb-param-remove, .jb-param-add {
+  padding: 5px 10px; font: inherit; font-size: 12px; color: var(--ink, #1a1a19);
+  background: var(--surface, #ffffff); border: 1px solid var(--hair, #e2e1d9); border-radius: 7px; cursor: pointer;
+}
+.jb-param-add { justify-self: start; font-size: 13px; }
+@media (max-width: 640px) {
+  .jb-param { grid-template-columns: 1fr auto; }
+  .jb-param-arrow { display: none; }
+}
