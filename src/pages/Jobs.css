@@ -31,7 +31,11 @@
 /* ── the table ───────────────────────────────────────────────────────── */
 .jb-table-wrap {
   background: var(--surface, #ffffff); border: 1px solid var(--hair, #e2e1d9);
-  border-radius: 13px; overflow: hidden;
+  border-radius: 13px;
+  /* SCROLLS rather than clips: if anything ever makes the table wider than
+     the page, the person can still reach its right-hand controls (a run's
+     log toggle). Clipping left them stuck with no way to collapse it. */
+  overflow-x: auto;
 }
 .jb-table { width: 100%; border-collapse: collapse; }
 .jb-table thead th {
@@ -206,7 +210,7 @@
 
 .jb-history {
   margin: 0 14px; border: 1px solid var(--hair, #e2e1d9); border-radius: 11px;
-  background: var(--surface, #ffffff); overflow: hidden;
+  background: var(--surface, #ffffff); overflow-x: auto;
 }
 .jb-history-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .jb-history-table th {
@@ -353,7 +357,13 @@
   font-size: 13px; line-height: 1.5; }
 .jb-log-line { display: flex; gap: 12px; }
 .jb-log-at { flex: 0 0 auto; font-variant-numeric: tabular-nums; opacity: .6; }
-.jb-log-msg { flex: 1 1 auto; word-break: break-word; }
+.jb-log-msg {
+  /* A log line WRAPS, whatever is in it — a generated SQL statement is one
+     long line. min-width: 0 lets the flex item shrink below its longest
+     word, and overflow-wrap: anywhere breaks inside one, so no line can make
+     the run table wider than the page. */
+  flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; white-space: pre-wrap;
+}
 .jb-log-line--warn .jb-log-msg { color: var(--xeplr-warning, #a15c00); }
 .jb-log-line--error .jb-log-msg { color: var(--xeplr-error, #b3261e); }
 /* A bare button wearing .jb-caret — the UA's own chrome removed so the disc
