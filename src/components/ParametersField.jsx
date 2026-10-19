@@ -18,6 +18,40 @@ import './ParametersField.css'
  * @param {object} props.inputs      the job's other inputs — what the name
  *   suggestions are asked with (field.suggestWith)
  */
+// What each input the suggestions depend on is called, for "choose the … above".
+const WHAT = { connectionInfoId: 'connection', dbInfoId: 'database', procedure: 'procedure' }
+
+/**
+ * A name box whose list OPENS ON CLICK — the procedure's parameter names,
+ * narrowed by what is typed — and says why when it has none. A plain
+ * <datalist> shows nothing until something is typed in several browsers.
+ */
+function NameBox({ label, value, names, emptyNote, onChange }) {
+  const [open, setOpen] = useState(false)
+  const typed = String(value || '').trim().toLowerCase()
+  const shown = names.filter((n) => !typed || n.toLowerCase().includes(typed))
+  return (
+    <div className="jb-namebox">
+      <input aria-label={label} className="jb-param-name" value={value} placeholder="name" autoComplete="off"
+        role="combobox" aria-expanded={open}
+        onFocus={() => setOpen(true)} onClick={() => setOpen(true)}
+        onBlur={() => setOpen(false)}
+        onKeyDown={(e) => { if (e.key === 'Escape') setOpen(false) }}
+        onChange={(e) => { onChange(e.target.value); setOpen(true) }} />
+      {open && (
+        <ul className="jb-namebox-list" role="listbox">
+          {shown.length ? shown.map((n) => (
+            <li key={n} role="option" aria-selected={n === value}
+              onMouseDown={(e) => { e.preventDefault(); onChange(n); setOpen(false) }}>{n}</li>
+          )) : (
+            <li className="jb-namebox-note">{names.length ? 'No parameter matches what is typed.' : (emptyNote || 'Type the name.')}</li>
+          )}
+        </ul>
+      )}
+    </div>
+  )
+}
+
 export default function ParametersField({ field, value, onChange, contract, inputs }) {
   const [rows, setRows] = useState(() => rowsFromText(value, contract))
   const id = `jb-in-${field.name}`
@@ -26,15 +60,27 @@ export default function ParametersField({ field, value, onChange, contract, inpu
   // asked again whenever the connection, database or procedure changes.
   const query = Object.fromEntries(Object.entries(field.suggestWith || {}).map(([k, from]) => [k, inputs?.[from]]))
   const queryKey = JSON.stringify(query)
+  // What the name list says when it has nothing: which choice above is still
+  // missing, that it is looking, or that the procedure has none.
+  const missing = Object.entries(field.suggestWith || {}).filter(([k]) => !query[k]).map(([, from]) => WHAT[from] || from)
   const [names, setNames] = useState([])
+  const [state, setState] = useState('idle')
   useEffect(() => {
     if (!field.suggestFrom) return undefined
+    const q = JSON.parse(queryKey)
+    if (Object.values(q).some((v) => v === undefined || v === null || v === '')) { setNames([]); setState('idle'); return undefined }
     let live = true
-    fetchSuggestions(field.suggestFrom, JSON.parse(queryKey))
-      .then((n) => { if (live) setNames(n) })
-      .catch(() => { if (live) setNames([]) })
+    setState('loading')
+    fetchSuggestions(field.suggestFrom, q)
+      .then((n) => { if (live) { setNames(n); setState('ready') } })
+      .catch(() => { if (live) { setNames([]); setState('failed') } })
     return () => { live = false }
   }, [field.suggestFrom, queryKey])
+  const emptyNote = !field.suggestFrom ? null
+    : missing.length ? `Choose the ${missing.join(', ')} above to see this procedure's parameters.`
+    : state === 'loading' ? 'Reading the procedure\'s parameters…'
+    : state === 'failed' ? 'Could not read the procedure\'s parameters. Type the name.'
+    : 'This procedure has no parameters to fill, or it was not found. Type the name.'
 
   // Saved text that is not a list (typed by hand before this control
   // existed) is shown as it is rather than guessed at.
@@ -69,12 +115,9 @@ export default function ParametersField({ field, value, onChange, contract, inpu
           const source = sourceOf(r.value, contract)
           return (
             <div key={i} className="jb-param">
-              <input aria-label={`Parameter ${i + 1} name`} className="jb-param-name" value={r.name}
-                list={`${id}-names-${i}`} placeholder="name"
-                onChange={(e) => patchRow(i, { name: e.target.value })} />
-              <datalist id={`${id}-names-${i}`}>
-                {unusedNames(names, rows, i).map((n) => <option key={n} value={n} />)}
-              </datalist>
+              <NameBox label={`Parameter ${i + 1} name`} value={r.name}
+                names={unusedNames(names, rows, i)} emptyNote={emptyNote}
+                onChange={(name) => patchRow(i, { name })} />
               <span className="jb-param-arrow" aria-hidden="true">←</span>
               <select aria-label={`Parameter ${i + 1} value`} value={source}
                 onChange={(e) => patchRow(i, { value: valueForSource(e.target.value, r.value, contract) })}>
@@ -97,9 +140,7 @@ export default function ParametersField({ field, value, onChange, contract, inpu
       </div>
       <button type="button" className="jb-param-add" onClick={() => update([...rows, { name: '', value: '' }])}>+ Add parameter</button>
       <span className="jb-help">
-        {names.length
-          ? `Click a name box to pick one of the procedure's parameters (${names.join(', ')}), or type your own.`
-          : 'The name is the procedure\'s own parameter name.'}
+        Click a name box to pick one of the procedure's parameters, or type your own.
         {' '}On MySQL, parameters go by position, so keep them in the order the procedure declares them.
       </span>
     </div>
