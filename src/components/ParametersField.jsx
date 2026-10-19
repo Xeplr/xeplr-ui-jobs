@@ -1,5 +1,6 @@
-import { useState } from 'react'
-import { FIXED, groupedChoices, rowsFromText, rowsToText, sourceOf, valueForSource } from '../lib/parametersModel.js'
+import { useEffect, useState } from 'react'
+import { fetchSuggestions } from '../api/jobs.js'
+import { FIXED, groupedChoices, rowsFromText, rowsToText, sourceOf, unusedNames, valueForSource } from '../lib/parametersModel.js'
 import './ParametersField.css'
 
 /**
@@ -14,10 +15,26 @@ import './ParametersField.css'
  * @param {string} props.value     saved JSON text
  * @param {Function} props.onChange
  * @param {object[]} props.contract  what every run receives (useRunContract)
+ * @param {object} props.inputs      the job's other inputs — what the name
+ *   suggestions are asked with (field.suggestWith)
  */
-export default function ParametersField({ field, value, onChange, contract }) {
+export default function ParametersField({ field, value, onChange, contract, inputs }) {
   const [rows, setRows] = useState(() => rowsFromText(value, contract))
   const id = `jb-in-${field.name}`
+
+  // THE PROCEDURE'S OWN PARAMETER NAMES, offered when a name box is clicked —
+  // asked again whenever the connection, database or procedure changes.
+  const query = Object.fromEntries(Object.entries(field.suggestWith || {}).map(([k, from]) => [k, inputs?.[from]]))
+  const queryKey = JSON.stringify(query)
+  const [names, setNames] = useState([])
+  useEffect(() => {
+    if (!field.suggestFrom) return undefined
+    let live = true
+    fetchSuggestions(field.suggestFrom, JSON.parse(queryKey))
+      .then((n) => { if (live) setNames(n) })
+      .catch(() => { if (live) setNames([]) })
+    return () => { live = false }
+  }, [field.suggestFrom, queryKey])
 
   // Saved text that is not a list (typed by hand before this control
   // existed) is shown as it is rather than guessed at.
@@ -53,8 +70,11 @@ export default function ParametersField({ field, value, onChange, contract }) {
           return (
             <div key={i} className="jb-param">
               <input aria-label={`Parameter ${i + 1} name`} className="jb-param-name" value={r.name}
-                placeholder={source === FIXED ? 'name' : 'e.g. startDate'}
+                list={`${id}-names-${i}`} placeholder="name"
                 onChange={(e) => patchRow(i, { name: e.target.value })} />
+              <datalist id={`${id}-names-${i}`}>
+                {unusedNames(names, rows, i).map((n) => <option key={n} value={n} />)}
+              </datalist>
               <span className="jb-param-arrow" aria-hidden="true">←</span>
               <select aria-label={`Parameter ${i + 1} value`} value={source}
                 onChange={(e) => patchRow(i, { value: valueForSource(e.target.value, r.value, contract) })}>
@@ -77,8 +97,10 @@ export default function ParametersField({ field, value, onChange, contract }) {
       </div>
       <button type="button" className="jb-param-add" onClick={() => update([...rows, { name: '', value: '' }])}>+ Add parameter</button>
       <span className="jb-help">
-        The name is the procedure's own parameter name. On MySQL, parameters go by position, so keep
-        them in the order the procedure declares them.
+        {names.length
+          ? `Click a name box to pick one of the procedure's parameters (${names.join(', ')}), or type your own.`
+          : 'The name is the procedure\'s own parameter name.'}
+        {' '}On MySQL, parameters go by position, so keep them in the order the procedure declares them.
       </span>
     </div>
   )

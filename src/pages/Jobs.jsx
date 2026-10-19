@@ -15,7 +15,7 @@ import JobChainSection from '../components/JobChainSection.jsx'
 import ParametersField from '../components/ParametersField.jsx'
 import { useRunContract } from '../useRunContract.js'
 import { useJobChainController } from '../useJobChainController.js'
-import { acceptableFields, toggleAccepted } from '../lib/jobChainModel.js'
+import { acceptableFields } from '../lib/jobChainModel.js'
 import './Jobs.css'
 
 // SCHEDULED JOBS — @xeplr/jobs, in this product's chrome.
@@ -448,7 +448,7 @@ function ActionInput({ field, value, onChange, inputs, contract }) {
 
   // Rows rather than JSON, for an input the action marks as parameters.
   if (field.control === 'parameters') {
-    return <ParametersField field={field} value={value} onChange={onChange} contract={contract || []} />
+    return <ParametersField field={field} value={value} onChange={onChange} contract={contract || []} inputs={inputs} />
   }
   const common = { id, value, onChange: (e) => onChange(e.target.value) }
 
@@ -536,7 +536,8 @@ function JobEditor({ job, jobs, actions, onCancel, onSaved }) {
       Object.entries(job?.inputs || {}).map(([k, v]) => [k, toFieldValue(v)])
     ),
     // Inputs the job BEFORE this one in a chain may fill (@xeplr/jobs'
-    // acceptsInputs). `window` always may, so it is not listed.
+    // acceptsInputs). No longer edited here — a job takes what it needs from
+    // the job before through its parameters — but kept as saved.
     acceptsInputs: Array.isArray(job?.acceptsInputs) ? job.acceptsInputs : []
   }))
   const [saving, setSaving] = useState(false)
@@ -697,35 +698,9 @@ function JobEditor({ job, jobs, actions, onCancel, onSaved }) {
                 onChange={(v) => patch({ inputs: { ...draft.inputs, [f.name]: v } })}
               />
             )
-            const acceptable = acceptableFields(fields)
             return (
               <>
                 <div className="jb-grid">{primary.map(render)}</div>
-                {chain.enabled && acceptable.length > 0 && (
-                  /* WHAT THE JOB BEFORE THIS ONE MAY FILL. Off for every
-                     field until ticked: a chain may otherwise only pass the
-                     period (window), never this job's SQL or connection. */
-                  <details className="jb-advanced" open={draft.acceptsInputs.length > 0}>
-                    <summary>
-                      From the job before
-                      <span className="jb-dim">
-                        {' — '}
-                        {draft.acceptsInputs.length ? draft.acceptsInputs.map((n) => fieldLabel(acceptable.find((f) => f.name === n) || { name: n })).join(' · ') : 'only the period'}
-                      </span>
-                    </summary>
-                    <p className="jb-help">
-                      When another job runs this one, it always passes the period it ran for. Tick the inputs
-                      it may also fill; everything else stays as saved here.
-                    </p>
-                    {acceptable.map((f) => (
-                      <label key={f.name} className="jb-chain-toggle">
-                        <input type="checkbox" checked={draft.acceptsInputs.includes(f.name)}
-                          onChange={(e) => patch({ acceptsInputs: toggleAccepted(draft.acceptsInputs, f.name, e.target.checked) })} />
-                        {fieldLabel(f)}
-                      </label>
-                    ))}
-                  </details>
-                )}
                 {advanced.length > 0 && (
                   /* COLLAPSED, NOT HIDDEN. The summary names every field in
                      here and its current value, so closing it never conceals

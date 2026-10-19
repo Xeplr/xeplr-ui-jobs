@@ -107,6 +107,7 @@ Every call goes through `authFetch`, which prefixes the base URL `@xeplr/ui-acco
 | pause / resume | `POST /jobs/:id/pause`, `POST /jobs/:id/resume` |
 | a run's log lines | `GET /logs?referenceId=<occurrenceId>` — **not** under `apiBase` |
 | an option list | `GET <source.url>?limit=0` — under `apiBase` |
+| name suggestions | `GET <source.url>?limit=0&<param>=<value>…` for each of the field's `suggestWith` — under `apiBase` |
 | a job's "After this job" rules | `GET` / `PUT <chainsApiBase>/job-chains/:jobId` with `{ rules, jobName }` — **not** under `apiBase` |
 
 `/logs` is the platform's generic log route, not part of `@xeplr/jobs`. A host without it answers 404 and the panel shows an error in place of the log. Log lines are keyed by occurrence id because an action writes under the `referenceId` it is handed.
@@ -134,9 +135,9 @@ Three steps (four with `chainsApiBase`), all reachable at any time, with **Save 
 
    The period this job ran for passes to the next job by itself. Text that is not JSON, a missing job, or an "otherwise" that is not last is refused before anything is saved; the server checks the meaning and names the rule. An existing job's rules are saved before the job, and a new job's right after it (it needs its id).
 
-An input the action marks `control: 'parameters'` (a procedure's parameters) is shown as rows, not JSON (`ParametersField`, `lib/parametersModel.js`): a parameter's name, and where its value comes from: **Start of the window**, **End of the window** (saved as `{window.from}` / `{window.to}`, which `@xeplr/jobs` fills in with the run's dates) or a **Fixed value**. The choices are the jobs package's run contract (`GET /jobs/run-contract`, `useRunContract`), grouped: **This run** (start / end of the window) and **The job before** (the range it was given and the range it actually used, start / end). A job with no parameters yet starts with the two window rows, and one whose name is left empty is not saved. An input marked `hidden` (the procedure's old **Window**) is shown only when a job already holds one.
+An input the action marks `control: 'parameters'` (a procedure's parameters) is shown as rows, not JSON (`ParametersField`, `lib/parametersModel.js`): a parameter's name, and where its value comes from: **Start of the window**, **End of the window** (saved as `{window.from}` / `{window.to}`, which `@xeplr/jobs` fills in with the run's dates) or a **Fixed value**. The choices are the jobs package's run contract (`GET /jobs/run-contract`, `useRunContract`), grouped: **This run** (start / end of the window) and **The job before** (the range it was given and the range it actually used, start / end). A job with no parameters starts with none (**+ Add parameter**). When the action names a `suggestFrom` source (`db-procedure`: `procedureParams`, asked with the connection, database and procedure), clicking a name box offers the procedure's own parameter names, minus those already used. A row with neither name nor value is not saved. An input marked `hidden` (the procedure's old **Window**) is shown only when a job already holds one.
 
-With `chainsApiBase`, **Inputs** also has **From the job before**: tickboxes for the inputs another job may fill when it runs this one (the job's `acceptsInputs`). No field is ticked by default, and a field naming a connection is never offered.
+A job's saved `acceptsInputs` (what the job before may fill) is kept as it is but no longer edited here: a job takes what it needs from the job before through its parameters. The **After this job** rules offer a condition, the job to run and values to **carry** for later jobs.
 
 A new job with a schedule defaults to **Paused**, so it can be written now and started later. A job with no schedule is saved as `ready` and runs only when triggered.
 

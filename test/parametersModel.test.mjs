@@ -1,6 +1,6 @@
 // A procedure's parameters as rows, and back. Wrong here means a job that
 // passes a date to the wrong parameter, or drops a value somebody saved.
-import { FIXED, bindingFor, sourceOf, rowsFromText, rowsToText, valueForSource, groupedChoices } from '../src/lib/parametersModel.js'
+import { FIXED, bindingFor, sourceOf, rowsFromText, rowsToText, valueForSource, groupedChoices, unusedNames } from '../src/lib/parametersModel.js'
 
 const results = []
 const check = (name, cond) => { results.push([name, cond]); console.log((cond ? '  ok   ' : '  FAIL ') + name) }
@@ -9,20 +9,15 @@ const CONTRACT = [
   { key: 'previous.given.from', group: 'The job before', label: 'Given range: start' }, { key: 'previous.used.to', group: 'The job before', label: 'Used range: end' }
 ]
 
-console.log('\na new job starts with the window\'s start and end')
+console.log('\na new job starts with no parameters')
 {
-  const rows = rowsFromText('', CONTRACT)
-  check('two starter rows, bound to the window', rows.length === 2 && rows[0].value === '{window.from}' && rows[1].value === '{window.to}' && rows.every((r) => r.starter))
-  check('starter rows nobody named are not saved', rowsToText(rows) === '')
-  check('an empty saved list starts the same way', rowsFromText('[]', CONTRACT).length === 2)
-  check('with no contract, no starter rows', rowsFromText('', []).length === 0)
+  check('no rows until the person adds one', rowsFromText('', CONTRACT).length === 0 && rowsFromText('[]', CONTRACT).length === 0)
+  check('an empty row is not saved', rowsToText([{ name: '', value: '' }]) === '')
 }
 
 console.log('\nrows → what the procedure step takes')
 {
-  const rows = rowsFromText('', CONTRACT)
-  rows[0].name = 'startDate'; rows[1].name = 'endDate'
-  rows.push({ name: 'region', value: 'north' })
+  const rows = [{ name: 'startDate', value: '{window.from}' }, { name: 'endDate', value: '{window.to}' }, { name: 'region', value: 'north' }]
   const saved = JSON.parse(rowsToText(rows))
   check('named rows are { name, value }, in order', JSON.stringify(saved) === JSON.stringify([
     { name: 'startDate', value: '{window.from}' }, { name: 'endDate', value: '{window.to}' }, { name: 'region', value: 'north' }]))
@@ -48,7 +43,7 @@ console.log('\nwhere a value comes from')
 
 console.log('\nthe job before\'s ranges')
 {
-  check('starter rows are this run\'s window only', rowsFromText('', CONTRACT).length === 2)
+  check('names already used by another row are not suggested again', JSON.stringify(unusedNames(['a', 'b', 'c'], [{ name: 'a' }, { name: 'b' }], 1)) === '["b","c"]')
   check('the job before\'s ranges are choices', sourceOf('{previous.used.to}', CONTRACT) === 'previous.used.to')
   const g = groupedChoices(CONTRACT)
   check('grouped in the contract\'s order', g.length === 2 && g[0].group === 'This run' && g[1].options.length === 2)
