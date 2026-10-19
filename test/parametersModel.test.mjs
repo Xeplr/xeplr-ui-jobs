@@ -1,10 +1,13 @@
 // A procedure's parameters as rows, and back. Wrong here means a job that
 // passes a date to the wrong parameter, or drops a value somebody saved.
-import { FIXED, bindingFor, sourceOf, rowsFromText, rowsToText, valueForSource } from '../src/lib/parametersModel.js'
+import { FIXED, bindingFor, sourceOf, rowsFromText, rowsToText, valueForSource, groupedChoices } from '../src/lib/parametersModel.js'
 
 const results = []
 const check = (name, cond) => { results.push([name, cond]); console.log((cond ? '  ok   ' : '  FAIL ') + name) }
-const CONTRACT = [{ key: 'window.from', label: 'Start of the window' }, { key: 'window.to', label: 'End of the window' }]
+const CONTRACT = [
+  { key: 'window.from', group: 'This run', label: 'Start of the window' }, { key: 'window.to', group: 'This run', label: 'End of the window' },
+  { key: 'previous.given.from', group: 'The job before', label: 'Given range: start' }, { key: 'previous.used.to', group: 'The job before', label: 'Used range: end' }
+]
 
 console.log('\na new job starts with the window\'s start and end')
 {
@@ -41,6 +44,14 @@ console.log('\nwhere a value comes from')
   check('anything else is fixed', sourceOf('north', CONTRACT) === FIXED && sourceOf('{window.other}', CONTRACT) === FIXED)
   check('switching to the window binds it', valueForSource('window.from', 'north', CONTRACT) === '{window.from}')
   check('switching to fixed keeps fixed text, clears a binding', valueForSource(FIXED, 'north', CONTRACT) === 'north' && valueForSource(FIXED, '{window.to}', CONTRACT) === '')
+}
+
+console.log('\nthe job before\'s ranges')
+{
+  check('starter rows are this run\'s window only', rowsFromText('', CONTRACT).length === 2)
+  check('the job before\'s ranges are choices', sourceOf('{previous.used.to}', CONTRACT) === 'previous.used.to')
+  const g = groupedChoices(CONTRACT)
+  check('grouped in the contract\'s order', g.length === 2 && g[0].group === 'This run' && g[1].options.length === 2)
 }
 
 const failed = results.filter(([, ok]) => !ok)
