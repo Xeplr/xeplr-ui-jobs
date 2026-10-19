@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { FIXED, rowsFromText, rowsToText, sourceOf, valueForSource } from '../lib/parametersModel.js'
+import { FIXED, groupedChoices, rowsFromText, rowsToText, sourceOf, valueForSource } from '../lib/parametersModel.js'
 import './ParametersField.css'
 
 /**
@@ -42,8 +42,9 @@ export default function ParametersField({ field, value, onChange, contract }) {
       <label>{field.label || field.name}</label>
       {contract.length > 0 && (
         <span className="jb-help">
-          Every run receives a window, from this job's schedule or from the job before it:{' '}
-          {contract.map((c) => c.label.toLowerCase()).join(' and ')}. Pick it as a parameter's value.
+          Pick each value from what every run receives: this run's window (from its schedule or the job
+          before it), and, when another job started it, the range that job was given and the range it
+          actually used. Anything else is a fixed value.
         </span>
       )}
       <div className="jb-params">
@@ -57,7 +58,11 @@ export default function ParametersField({ field, value, onChange, contract }) {
               <span className="jb-param-arrow" aria-hidden="true">←</span>
               <select aria-label={`Parameter ${i + 1} value`} value={source}
                 onChange={(e) => patchRow(i, { value: valueForSource(e.target.value, r.value, contract) })}>
-                {contract.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
+                {groupedChoices(contract).map((g) => (
+                  <optgroup key={g.group} label={g.group}>
+                    {g.options.map((c) => <option key={c.key} value={c.key} title={c.description}>{c.label}</option>)}
+                  </optgroup>
+                ))}
                 <option value={FIXED}>Fixed value</option>
               </select>
               {source === FIXED ? (
