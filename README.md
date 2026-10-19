@@ -114,6 +114,8 @@ Every call goes through `authFetch`, which prefixes the base URL `@xeplr/ui-acco
 
 ## The screen
 
+**Where you are is in the URL** (`useJobsUrl`), so a refresh or a shared link lands on the same screen: `?edit=<jobId>` or `?edit=new` opens the editor, `&step=inputs|schedule|after` its step, `?runs=<jobId>` a job's run history, `&log=<occurrenceId>` one run's log, `?q=` and `?sort=` the search and sort. Opening and closing add a history entry (Back closes them); steps and typing replace it. An `edit` id that is not there says so.
+
 - **Jobs table** — name, state (Running, Paused, Manual only, Scheduled), schedule in words (`describeCron`, else "Custom"), next run ("in 3 hours", "due now"), last run, an **on / paused switch**, and **Run now**, **Edit**, **Delete** (confirmed; run history is kept). Search matches name, description and action; sort by name, next run or action.
 - **Run history** — the last-run cell opens that job's newest 50 runs, each with its log.
 - **Recent runs** — the 12 latest runs across all jobs, with duration, trigger and error message.
