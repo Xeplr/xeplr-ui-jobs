@@ -185,3 +185,13 @@ export async function fetchOccurrenceLogs(occurrenceId) {
   const res = await authFetch(`/logs?referenceId=${encodeURIComponent(occurrenceId)}`)
   return res.dataArray || []
 }
+
+/**
+ * What every run of a job receives — its window's start and end — as the
+ * names an input binds to: [{ key, label, description }]. From @xeplr/jobs'
+ * GET /jobs/run-contract, so the dropdowns offer exactly what the server fills.
+ */
+export async function getRunContract() {
+  const res = await authFetch(url('/jobs/run-contract'))
+  return res.dataArray || []
+}

@@ -134,6 +134,8 @@ Three steps (four with `chainsApiBase`), all reachable at any time, with **Save 
 
    The period this job ran for passes to the next job by itself. Text that is not JSON, a missing job, or an "otherwise" that is not last is refused before anything is saved; the server checks the meaning and names the rule. An existing job's rules are saved before the job, and a new job's right after it (it needs its id).
 
+An input the action marks `control: 'parameters'` (a procedure's parameters) is shown as rows, not JSON (`ParametersField`, `lib/parametersModel.js`): a parameter's name, and where its value comes from: **Start of the window**, **End of the window** (saved as `{window.from}` / `{window.to}`, which `@xeplr/jobs` fills in with the run's dates) or a **Fixed value**. The choices are the jobs package's run contract (`GET /jobs/run-contract`, `useRunContract`). A job with no parameters yet starts with the two window rows, and one whose name is left empty is not saved. An input marked `hidden` (the procedure's old **Window**) is shown only when a job already holds one.
+
 With `chainsApiBase`, **Inputs** also has **From the job before**: tickboxes for the inputs another job may fill when it runs this one (the job's `acceptsInputs`). No field is ticked by default, and a field naming a connection is never offered.
 
 A new job with a schedule defaults to **Paused**, so it can be written now and started later. A job with no schedule is saved as `ready` and runs only when triggered.
