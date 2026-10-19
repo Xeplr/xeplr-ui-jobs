@@ -18,3 +18,18 @@
   .jb-param { grid-template-columns: 1fr auto; }
   .jb-param-arrow { display: none; }
 }
+/* The name box and its list, which opens on click. */
+.jb-namebox { position: relative; min-width: 0; }
+.jb-namebox-list {
+  position: absolute; z-index: 20; top: calc(100% + 4px); left: 0; right: 0; margin: 0; padding: 4px;
+  list-style: none; max-height: 220px; overflow: auto;
+  background: var(--surface, #ffffff); border: 1px solid var(--hair, #e2e1d9); border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .12);
+}
+.jb-namebox-list li {
+  padding: 6px 8px; border-radius: 6px; cursor: pointer;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; color: var(--ink, #1a1a19);
+}
+.jb-namebox-list li:hover, .jb-namebox-list li[aria-selected="true"] { background: var(--xeplr-hover, #f0efe9); }
+.jb-namebox-list .jb-namebox-note { cursor: default; font-family: inherit; font-size: 12px; color: var(--muted, #6b6a63); }
+.jb-namebox-list .jb-namebox-note:hover { background: none; }
