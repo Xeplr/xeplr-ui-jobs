@@ -411,3 +411,4 @@
    mark — a rotated '>' glyph never sat straight, whatever the box did. */
 .jb-caret { padding: 0; }
 .jb-caret .jb-icon { transition: none; }
+.jb-linkish { padding: 0; font: inherit; color: var(--accent, #2563eb); background: none; border: 0; cursor: pointer; text-decoration: underline; }

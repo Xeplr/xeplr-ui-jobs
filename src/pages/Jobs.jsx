@@ -14,6 +14,7 @@ import CronScheduleField from '../components/CronScheduleField.jsx'
 import JobChainSection from '../components/JobChainSection.jsx'
 import ParametersField from '../components/ParametersField.jsx'
 import { useRunContract } from '../useRunContract.js'
+import { useJobsUrl } from '../useJobsUrl.js'
 import { useJobChainController } from '../useJobChainController.js'
 import { acceptableFields } from '../lib/jobChainModel.js'
 import './Jobs.css'
@@ -147,12 +148,12 @@ function OccurrenceLogs({ occurrenceId }) {
  * Re-fetched on `refreshKey` so that pressing Run now updates the open history
  * instead of leaving it showing the state from before the click.
  */
-function JobRuns({ jobId, refreshKey }) {
+function JobRuns({ jobId, refreshKey, openLogId, onOpenLog }) {
   const [runs, setRuns] = useState(null)
   const [error, setError] = useState(null)
-  // Which occurrence has its log open. One at a time: two open logs is two
-  // scrolling regions competing inside a row that is already an expansion.
-  const [openLogId, setOpenLogId] = useState(null)
+  // Which occurrence has its log open — in the URL (?log=), so a refresh keeps
+  // it open. One at a time: two open logs is two scrolling regions competing
+  // inside a row that is already an expansion.
 
   useEffect(() => {
     let alive = true
@@ -227,7 +228,7 @@ function JobRuns({ jobId, refreshKey }) {
                   aria-expanded={openLogId === run.id}
                   title={openLogId === run.id ? 'Hide this run’s log' : 'Show this run’s log'}
                   aria-label={openLogId === run.id ? 'Hide this run’s log' : 'Show this run’s log'}
-                  onClick={() => setOpenLogId((id) => (id === run.id ? null : run.id))}>
+                  onClick={() => onOpenLog(openLogId === run.id ? null : run.id)}>
                   <Icon path={ICON_CHEVRON} size={14} />
                 </button>
               </td>
@@ -508,7 +509,7 @@ function ActionInput({ field, value, onChange, inputs, contract }) {
 
 // The editor. A panel rather than a route: a job is a handful of fields, and a
 // page you navigate to and back from for those is three navigations too many.
-function JobEditor({ job, jobs, actions, onCancel, onSaved }) {
+function JobEditor({ job, jobs, actions, onCancel, onSaved, stepKey, onStep }) {
   const [draft, setDraft] = useState(() => ({
     name: job?.name || '',
     description: job?.description || '',
@@ -541,10 +542,12 @@ function JobEditor({ job, jobs, actions, onCancel, onSaved }) {
     acceptsInputs: Array.isArray(job?.acceptsInputs) ? job.acceptsInputs : []
   }))
   const [saving, setSaving] = useState(false)
-  const [step, setStep] = useState(0)
   const chain = useJobChainController(job?.id || null)
   const contract = useRunContract()
   const STEPS = chain.enabled ? [...BASE_STEPS, AFTER_STEP] : BASE_STEPS
+  // THE STEP IS IN THE URL (?step=), so a refresh reopens the same one.
+  const step = Math.max(0, STEPS.findIndex((s) => s.key === stepKey))
+  const setStep = (i) => onStep(STEPS[Math.max(0, Math.min(STEPS.length - 1, i))].key)
 
   const action = actions.find((a) => a.name === draft.actionName) || null
   const patch = (p) => setDraft((d) => ({ ...d, ...p }))
@@ -877,11 +880,21 @@ export default function Jobs({ breadcrumb: Breadcrumb, uploadLink } = {}) {
   const [runs, setRuns] = useState([])
   const [actions, setActions] = useState([])
   const [error, setError] = useState(null)
-  const [query, setQuery] = useState('')
-  const [sort, setSort] = useState('name')
-  const [editing, setEditing] = useState(null)   // job object, {} for new, null for closed
+  // EVERYTHING THAT SAYS WHERE YOU ARE comes from the URL — see useJobsUrl.
+  const url = useJobsUrl()
+  const query = url.q
+  const sort = url.sort
+  const setQuery = (q) => url.set({ q: q }, { replace: true })
+  const setSort = (v) => url.set({ sort: v === 'name' ? null : v }, { replace: true })
+  const openRuns = url.runs
+  const setOpenRuns = (id) => url.set({ runs: id, log: null })
+  // ?edit=new is a new job; ?edit=<id> is that job once the list has loaded.
+  const editing = url.edit === 'new' ? {}
+    : url.edit && jobs ? (jobs.find((j) => j.id === url.edit) || null)
+    : null
+  const editMissing = Boolean(url.edit && url.edit !== 'new' && jobs && !editing)
+  const setEditing = (job) => url.set({ edit: job ? (job.id || 'new') : null, step: null })
   const [busyId, setBusyId] = useState(null)
-  const [openRuns, setOpenRuns] = useState(null) // jobId whose history is expanded
   // Bumped by anything that creates an occurrence, so an OPEN history refetches
   // rather than sitting there showing the state from before Run now was pressed.
   const [runsVersion, setRunsVersion] = useState(0)
@@ -1050,11 +1063,21 @@ export default function Jobs({ breadcrumb: Breadcrumb, uploadLink } = {}) {
       {error && <p className="report-builder-error">{error}</p>}
       {jobs === null && !error && <p className="muted">Loading…</p>}
 
+      {editMissing && (
+        <p className="report-builder-error">
+          There is no job {url.edit} here — it may have been deleted.{' '}
+          <button type="button" className="jb-linkish" onClick={() => setEditing(null)}>Back to the list</button>
+        </p>
+      )}
+
       {editing && (
         <JobEditor
+          key={url.edit}
           job={editing.id ? editing : null}
           jobs={jobs || []}
           actions={actions}
+          stepKey={url.step}
+          onStep={(key) => url.set({ step: key === 'job' ? null : key }, { replace: true })}
           onCancel={() => setEditing(null)}
           onSaved={() => { setEditing(null); load() }}
         />
@@ -1229,7 +1252,7 @@ export default function Jobs({ breadcrumb: Breadcrumb, uploadLink } = {}) {
                   {open && (
                     <tr className="jb-runs-row">
                       <td colSpan={7}>
-                        <JobRuns jobId={job.id} refreshKey={runsVersion} />
+                        <JobRuns jobId={job.id} refreshKey={runsVersion} openLogId={url.log} onOpenLog={(id) => url.set({ log: id })} />
                       </td>
                     </tr>
                   )}
