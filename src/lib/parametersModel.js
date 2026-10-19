@@ -35,34 +35,33 @@ export function groupedChoices(contract) {
 }
 
 /**
- * Saved text → rows. A job with no parameters yet starts with one row for
- * this run's window start and one for its end, named by the person — the
- * period is what nearly every scheduled procedure takes. The job before's
- * ranges are in every row's dropdown, but not rows of their own.
+ * Saved text → rows. A job with no parameters yet has none: the person adds
+ * them, picking each name from the procedure's own (see ParametersField).
  */
 export function rowsFromText(text, contract) {
   let list = []
   try { list = text ? JSON.parse(text) : [] } catch (e) { list = null }
   if (!Array.isArray(list)) return null
-  if (!list.length) {
-    return (contract || []).filter((c) => /^window\./.test(c.key))
-      .map((c) => ({ name: '', value: bindingFor(c.key), starter: true }))
-  }
   return list.map((p) => (p && typeof p === 'object' && !Array.isArray(p)
     ? { name: p.name == null ? '' : String(p.name), value: p.value == null ? '' : p.value }
     : { name: '', value: p == null ? '' : p, bare: true }))
 }
 
 /**
- * Rows → the text the form saves. A starter row nobody named is left out, so
- * a procedure with no date parameters gets none. A row with no name is kept
- * as a bare (positional) value.
+ * Rows → the text the form saves. A row with no name is kept as a bare
+ * (positional) value; a row with neither name nor value is left out.
  */
 export function rowsToText(rows) {
   const list = (rows || [])
-    .filter((r) => !(r.starter && !String(r.name || '').trim()))
+    .filter((r) => String(r.name || '').trim() || (r.value !== '' && r.value != null))
     .map((r) => (String(r.name || '').trim() ? { name: String(r.name).trim(), value: r.value } : r.value))
   return list.length ? JSON.stringify(list, null, 2) : ''
+}
+
+/** Suggested names not already used by another row. */
+export function unusedNames(names, rows, index) {
+  const taken = new Set((rows || []).filter((_, i) => i !== index).map((r) => String(r.name || '').trim()).filter(Boolean))
+  return (names || []).filter((n) => !taken.has(n))
 }
 
 /** A row's value when its source changes: a binding, or empty fixed text. */

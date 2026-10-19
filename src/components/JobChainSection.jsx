@@ -65,18 +65,8 @@ export default function JobChainSection({ chain, jobs, jobId }) {
                   </select>
                 </div>
 
-                <details className="jb-advanced" open={Boolean(row.inputs || row.carry)}>
+                <details className="jb-advanced" open={Boolean(row.carry)}>
                   <summary>Pass values on <span className="jb-dim">— optional</span></summary>
-                  <div className="jb-field">
-                    <label htmlFor={`jb-chain-inputs-${i}`}>Inputs of the next job <span className="jb-type">· JSON</span></label>
-                    <textarea id={`jb-chain-inputs-${i}`} className="jb-chain-json" rows={3}
-                      placeholder={'{ "region": "{output.region}" }'} value={row.inputs}
-                      onChange={(e) => chain.updateRow(i, { inputs: e.target.value })} />
-                    <span className="jb-help">
-                      Only inputs the next job accepts (its Inputs step lists them). Leave out
-                      <code className="jb-code">window</code> to pass this job's period on unchanged.
-                    </span>
-                  </div>
                   <div className="jb-field">
                     <label htmlFor={`jb-chain-carry-${i}`}>Carry for later jobs <span className="jb-type">· JSON</span></label>
                     <textarea id={`jb-chain-carry-${i}`} className="jb-chain-json" rows={3}

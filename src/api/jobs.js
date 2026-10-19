@@ -90,6 +90,22 @@ export function hasOptionSource(kind) {
  * be narrowed — databases on the chosen connection, rather than every database
  * on every connection.
  */
+/**
+ * Fetch suggestions from an option source, asked with several values at once
+ * — `query` is { param: value }. Answers the list of values (strings), empty
+ * when the source is not configured or something it needs is not chosen yet.
+ */
+export async function fetchSuggestions(kind, query) {
+  const src = _optionSources[kind]
+  if (!src) return []
+  const pairs = Object.entries(query || {})
+  if (pairs.some(([, v]) => v === undefined || v === null || v === '')) return []
+  const q = pairs.map(([k, v]) => `&${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('')
+  const res = await authFetch(url(`${src.url}?limit=0${q}`))
+  const list = (res && res[src.key || 'dataArray']) || []
+  return list.map((o) => String(o[src.value || 'value'])).filter(Boolean)
+}
+
 export async function fetchOptions(kind, filter) {
   const src = _optionSources[kind]
   if (!src) return []
