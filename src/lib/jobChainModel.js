@@ -246,11 +246,13 @@ export function workflowToRules(workflow) {
   const arrows = Array.isArray(decide.transitions) ? decide.transitions : []
   const rules = []
   for (const a of arrows) {
-    if (a.target === 'end_success' && !a.when) continue
+    // An arrow with no condition at all is "otherwise", however it was written.
+    const when = a.when !== undefined ? a.when : (a.condition == null ? null : undefined)
+    if (a.target === 'end_success' && !when) continue
     const step = byKey[a.target]
-    if (!step || a.when === undefined) return { editedElsewhere: true, rules: [] }
+    if (!step || when === undefined) return { editedElsewhere: true, rules: [] }
     rules.push({
-      when: mapWhen(a.when, fromTriggerField),
+      when: mapWhen(when, fromTriggerField),
       run: step.values.jobId,
       inputs: mapBindings(step.values.inputs || {}, fromTriggerBindings),
       carry: mapBindings(step.values.carry || {}, fromTriggerBindings)

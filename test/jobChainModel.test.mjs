@@ -100,6 +100,8 @@ console.log('\nrules ⇄ the ordinary workflow they are')
   check('another trigger: edited elsewhere', workflowToRules({ ...stored, trigger: { kind: 'schedule', cron: '0 9 * * 1' } }).editedElsewhere === true)
   const plainCondition = { ...stored, steps: stored.steps.map((s) => (s.stepKey === 'decide' ? { ...s, transitions: [{ condition: { left: { field: 'trigger.status' }, op: 'eq', right: { value: 'x' } }, target: b.stepKey }] } : s)) }
   check('an arrow written without `when`: edited elsewhere', workflowToRules(plainCondition).editedElsewhere === true)
+  const bare = { ...stored, steps: stored.steps.map((s) => (s.stepKey === 'decide' ? { ...s, transitions: [{ condition: null, target: c.stepKey }] } : s)).filter((s) => s.stepKey !== b.stepKey) }
+  check('an arrow with no condition and no `when` is "otherwise"', JSON.stringify(workflowToRules(bare).rules) === JSON.stringify([{ when: null, run: 'jC', inputs: {}, carry: {} }]), workflowToRules(bare))
 }
 
 const failed = results.filter(([, ok]) => !ok)
