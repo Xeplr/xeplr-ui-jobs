@@ -19,6 +19,28 @@ export default function JobChainSection({ chain, jobs, jobId }) {
   }
 
   const others = (jobs || []).filter((j) => j.id !== jobId)
+  // Other workflows this job's finish starts, made in the workflow screens.
+  const alsoRuns = (chain.others || []).length > 0 && (
+    <p className="jb-help">
+      This job also starts {chain.others.length === 1 ? 'the workflow' : 'these workflows'}{' '}
+      {chain.others.map((w, i) => <span key={w.id}>{i ? ', ' : ''}<strong>{w.name}</strong></span>)} when it finishes.
+      They are edited in the workflow screens.
+    </p>
+  )
+
+  // Reshaped outside this form (another step, another trigger): the rules it
+  // shows would not be what runs, so it says so instead of showing them.
+  if (chain.editedElsewhere) {
+    return (
+      <div className="jb-chain">
+        <p className="jb-help jb-warn">
+          What runs after this job has been changed in the workflow screens, beyond what simple rules can say,
+          so it is not shown or changed here. Open the workflow “After …” for this job to see or change it.
+        </p>
+        {alsoRuns}
+      </div>
+    )
+  }
 
   return (
     <div className="jb-chain">
@@ -28,14 +50,17 @@ export default function JobChainSection({ chain, jobs, jobId }) {
       </label>
 
       {!chain.on && (
-        <p className="jb-help">Nothing runs after this job. Tick the box to choose what should, and when.</p>
+        <p className="jb-help">Nothing runs after this job from here. Tick the box to choose what should, and when.</p>
       )}
+      {alsoRuns}
 
       {chain.on && (
         <>
           <p className="jb-help">
             Rules are checked top to bottom and the first that matches runs its job. A rule with no
             condition means “otherwise”. The period this job ran for passes to the next job by itself.
+            The rules are saved as an ordinary workflow that starts when this job finishes, so they can
+            also be seen and grown in the workflow screens.
           </p>
 
           <ol className="jb-chain-rules">

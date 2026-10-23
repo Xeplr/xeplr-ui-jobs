@@ -17,6 +17,10 @@ export function useJobChainController(jobId) {
   const [on, setOn] = useState(false)
   const [loading, setLoading] = useState(Boolean(enabled && jobId))
   const [loadError, setLoadError] = useState(null)
+  // Reshaped outside this form: its rules are not shown or saved from here.
+  const [editedElsewhere, setEditedElsewhere] = useState(false)
+  // The other workflows this job's finish starts, made elsewhere.
+  const [others, setOthers] = useState([])
 
   useEffect(() => {
     if (!enabled || !jobId) return
@@ -29,6 +33,8 @@ export function useJobChainController(jobId) {
         setSaved(rules)
         setRows(rulesToRows(rules))
         setOn(rules.length > 0)
+        setEditedElsewhere(Boolean(res && res.editedElsewhere))
+        setOthers((res && res.others) || [])
         setLoadError(null)
       })
       .catch((err) => { if (live) setLoadError(err.message || 'Could not load the rules') })
@@ -62,7 +68,7 @@ export function useJobChainController(jobId) {
 
   /** The rules this form would save, and anything wrong with them. */
   function check(ownJobId) {
-    if (!on) return { rules: [], problems: [] }
+    if (!on || editedElsewhere) return { rules: [], problems: [] }
     return rowsToRules(rows, ownJobId)
   }
 
@@ -71,7 +77,7 @@ export function useJobChainController(jobId) {
    * changed, so saving a job's schedule does not rewrite its chain.
    */
   async function save(savedJobId, jobName) {
-    if (!enabled || !savedJobId || loadError) return
+    if (!enabled || !savedJobId || loadError || editedElsewhere) return
     const { rules, problems } = check(savedJobId)
     if (problems.length) throw new Error(problems.join(' '))
     if (sameRules(rules, saved)) return
@@ -79,5 +85,5 @@ export function useJobChainController(jobId) {
     setSaved((res && res.rules) || rules)
   }
 
-  return { enabled, on, setOn: setTurnedOn, rows, updateRow, addRow, removeRow, moveUp, loading, loadError, check, save }
+  return { enabled, on, setOn: setTurnedOn, rows, updateRow, addRow, removeRow, moveUp, loading, loadError, editedElsewhere, others, check, save }
 }

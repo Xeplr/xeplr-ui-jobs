@@ -84,7 +84,7 @@ There is no embedded / standalone switch: `registerJobsUI()` returns `<Route>` e
 | `optionSources` | `{}` | where a kind of thing is listed, for action inputs with `optionsFrom` — see below |
 | `breadcrumb` | — | a component, rendered as `<Breadcrumb items={[{ label: 'Jobs' }]} />` above the page |
 | `uploadLink` | — | element or string, shown in the page footnote ("Loading a file into a table is recorded separately — see …"); without it the footnote says "the upload screen" |
-| `chainsApiBase` | `null` | where the **workflow** API is mounted (e.g. `'/workflow'`). It keeps each job's "After this job" rules (`/job-chains/:jobId`), because jobs never start each other: the workflow engine does every hand-off. `null` (no workflow on the install) leaves the editor's **After this job** step out. HTTP only; this package does not import workflow |
+| `chainsApiBase` | `null` | where the **workflow** API is mounted (e.g. `'/workflow'`). A job's "After this job" rules are an ordinary workflow there, triggered by the job finishing, because jobs never start each other: the workflow engine does every hand-off. `null` (no workflow on the install) leaves the editor's **After this job** step out. HTTP only; this package does not import workflow |
 
 Returns `{ routes, path }`: one `<Route>` at `path`, and the path itself so your navigation does not retype it.
 
@@ -108,7 +108,7 @@ Every call goes through `authFetch`, which prefixes the base URL `@xeplr/ui-acco
 | a run's log lines | `GET /logs?referenceId=<occurrenceId>` — **not** under `apiBase` |
 | an option list | `GET <source.url>?limit=0` — under `apiBase` |
 | name suggestions | `GET <source.url>?limit=0&<param>=<value>…` for each of the field's `suggestWith` — under `apiBase` |
-| a job's "After this job" rules | `GET` / `PUT <chainsApiBase>/job-chains/:jobId` with `{ rules, jobName }` — **not** under `apiBase` |
+| a job's "After this job" rules | the workflow API's ordinary routes, **not** under `apiBase`. `GET <chainsApiBase>/workflows/by-key/after-job-<jobId>` reads this job's shortcut workflow, `GET <chainsApiBase>/workflows/by-trigger?kind=job&jobId=<jobId>` finds every workflow the job starts, and `POST <chainsApiBase>/workflows/save` saves the shortcut |
 
 `/logs` is the platform's generic log route, not part of `@xeplr/jobs`. A host without it answers 404 and the panel shows an error in place of the log. Log lines are keyed by occurrence id because an action writes under the `referenceId` it is handed.
 
@@ -136,6 +136,13 @@ Three steps (four with `chainsApiBase`), all reachable at any time, with **Save 
    - Optional **inputs** for the next job and **carry** for later ones, binding `{output.x}`, `{carry.x}`, `{window.to}`.
 
    The period this job ran for passes to the next job by itself. Text that is not JSON, a missing job, or an "otherwise" that is not last is refused before anything is saved; the server checks the meaning and names the rule. An existing job's rules are saved before the job, and a new job's right after it (it needs its id).
+
+   **The rules are an ordinary workflow.** It is triggered by this job finishing (`{ kind: 'job', jobId, when: 'finished' }`) and kept under the key `after-job-<jobId>`:
+   - a `decide` step with one `when` arrow per rule, which the engine compiles;
+   - one `job-run` step per rule;
+   - conditions and bindings stored against the trigger (`trigger.status`, `{trigger.output.region}`), while the form keeps the short names.
+
+   Removing every rule keeps the workflow as a draft, so it stops running. If the workflow is reshaped in the workflow screens (another step, another trigger, an arrow without `when`), this step says so and shows nothing to edit, rather than rules that are not what runs. Other workflows the job's finish starts are listed by name.
 
 An input the action marks `control: 'parameters'` (a procedure's parameters) is shown as rows, not JSON (`ParametersField`, `lib/parametersModel.js`): a parameter's name, and where its value comes from: **Start of the window**, **End of the window** (saved as `{window.from}` / `{window.to}`, which `@xeplr/jobs` fills in with the run's dates) or a **Fixed value**. The choices are the jobs package's run contract (`GET /jobs/run-contract`, `useRunContract`), grouped: **This run** (start / end of the window) and **The job before** (the range it was given and the range it actually used, start / end). A job with no parameters starts with none (**+ Add parameter**). When the action names a `suggestFrom` source (`db-procedure`: `procedureParams`, asked with the connection, database and procedure), clicking a name box opens a list of the procedure's own parameter names (`NameBox`), minus those already used and narrowed by what is typed; when it cannot have them yet it says which of connection, database and procedure is still to be chosen. A row with neither name nor value is not saved. An input marked `hidden` (the procedure's old **Window**) is shown only when a job already holds one.
 
@@ -195,7 +202,7 @@ Styles read `--accent`, `--surface`, `--ink`, `--muted`, `--hair`, `--plane` and
 npm test
 ```
 
-Plain Node scripts, no framework (`test/run.mjs` runs each `*.test.*` file): job state, `describeCron`, next-run and duration labels, latest run per job, search and sort; and the "After this job" form's rules: text to rules and back, what is refused, what the job before may fill (`jobChainModel.test.mjs`).
+Plain Node scripts, no framework (`test/run.mjs` runs each `*.test.*` file): job state, `describeCron`, next-run and duration labels, latest run per job, search and sort; and the "After this job" form's rules: text to rules and back, what is refused, what the job before may fill, and rules ⇄ the workflow they are (its trigger, `when` arrows, `job-run` steps, reused and deleted steps, a draft, and every reshape that counts as edited elsewhere) (`jobChainModel.test.mjs`).
 
 ## License
 

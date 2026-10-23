@@ -1,12 +1,22 @@
 // "AFTER THIS JOB" — the rules a job's screen writes, as pure logic.
 //
-// The rules are kept by the workflow engine, not by jobs: each becomes a branch
-// of one hidden workflow that runs when the job finishes (see
-// @xeplr-workflow/engine's lib/jobChains.js). This file is only the form's
-// half — the text a person types, turned into the rules the server takes,
-// and back — so it can be tested with plain node.
+// The rules are an ORDINARY WORKFLOW, triggered by this job finishing
+// ({ kind: 'job', jobId, when: 'finished' } — @xeplr/workflow-engine's
+// triggers). This screen is a shortcut for one shape of it:
 //
-// A rule as the server takes it:
+//   decide       one arrow per rule, written as `when` (the engine compiles
+//                it), first match wins; no match ends the run
+//   run steps    one per rule: job-run, which starts that job and waits
+//
+// kept under the key `after-job-<jobId>`, so this job's own shortcut is told
+// apart from any other workflow the same job triggers. Reshape it somewhere
+// else (another step, another trigger) and it no longer fits this form: the
+// screen then says so and points there, rather than showing rules that are
+// not what runs. Everything here is pure, so it can be tested with plain node.
+//
+// A rule as this form writes it — fields and bindings relative to the job
+// that finished (`status`, `output.x`, `{output.region}`); stored, they read
+// the workflow's trigger (`trigger.status`, `{trigger.output.region}`):
 //
 //   { when: { field, op, value } | { all: [...] } | { any: [...] } | null,
 //     run: '<jobId>', inputs: { … }, carry: { … } }
@@ -119,4 +129,133 @@ export function toggleAccepted(list, name, on) {
   if (on) set.add(name)
   else set.delete(name)
   return Array.from(set)
+}
+
+// ── the rules ⇄ the workflow they are ───────────────────────────────────
+
+/** The workflow key this job's "After this job" shortcut keeps its rules under. */
+export function shortcutKey(jobId) {
+  return 'after-job-' + jobId
+}
+
+// What a rule's fields and bindings start with — the finished job's values,
+// which the workflow reads from its trigger.
+const ROOTS = ['status', 'error', 'output', 'carry', 'window', 'jobId', 'given', 'used']
+const ROOT_FIELD = new RegExp('^(' + ROOTS.join('|') + ')(\\.|$)')
+
+function mapWhen(when, fn) {
+  if (!when || typeof when !== 'object') return when
+  if (Array.isArray(when.all)) return { all: when.all.map((w) => mapWhen(w, fn)) }
+  if (Array.isArray(when.any)) return { any: when.any.map((w) => mapWhen(w, fn)) }
+  return { ...when, field: fn(String(when.field || '')) }
+}
+
+function mapBindings(value, fn) {
+  if (typeof value === 'string') return fn(value)
+  if (Array.isArray(value)) return value.map((v) => mapBindings(v, fn))
+  if (value && typeof value === 'object') {
+    const out = {}
+    Object.keys(value).forEach((k) => { out[k] = mapBindings(value[k], fn) })
+    return out
+  }
+  return value
+}
+
+const toTriggerField = (f) => (ROOT_FIELD.test(f) ? 'trigger.' + f : f)
+const fromTriggerField = (f) => (f.startsWith('trigger.') ? f.slice('trigger.'.length) : f)
+const BINDING_ROOT = new RegExp('\\{\\s*(' + ROOTS.join('|') + ')\\b', 'g')
+const toTriggerBindings = (text) => text.replace(BINDING_ROOT, '{trigger.$1')
+const fromTriggerBindings = (text) => text.replace(/\{\s*trigger\./g, '{')
+
+function freshKey() {
+  return 'run_' + Math.random().toString(36).slice(2, 8)
+}
+
+/**
+ * The workflow changeset for a job's rules — one entry for POST
+ * /workflows/save. `existing` is the shortcut's workflow as GET returned it
+ * (with `steps`), or null for a job that has none yet. Steps are reused by
+ * position and removed ones sent as deleted, so a save never collides with a
+ * step key it used before. No rules: kept as a draft, so it no longer runs.
+ */
+export function rulesToWorkflow(jobId, jobName, rules, existing) {
+  const list = Array.isArray(rules) ? rules : []
+  const steps = existing && Array.isArray(existing.steps) ? existing.steps : []
+  const oldDecide = steps.find((s) => s.stepKey === 'decide')
+  const oldRuns = steps.filter((s) => s.stepKey !== 'decide').sort((a, b) => (a.position || 0) - (b.position || 0))
+
+  const runs = list.map((rule, i) => {
+    const reuse = oldRuns[i]
+    return {
+      ...(reuse ? { id: reuse.id } : {}),
+      stepKey: reuse ? reuse.stepKey : freshKey(),
+      name: 'Run job ' + rule.run,
+      actionName: 'job-run',
+      kind: 'wait',
+      onError: 'stop',
+      position: i + 1,
+      values: {
+        jobId: rule.run,
+        inputs: mapBindings(rule.inputs || {}, toTriggerBindings),
+        carry: mapBindings(rule.carry || {}, toTriggerBindings),
+        callbackUrl: '{resumeUrl}'
+      },
+      transitions: [{ when: null, mode: 'single', target: 'end_success' }]
+    }
+  })
+  const arrows = list.map((rule, i) => ({ when: mapWhen(rule.when || null, toTriggerField), mode: 'single', target: runs[i].stepKey }))
+  // Nothing matching ends the run: "if this, run that" is not a failure when
+  // neither applies.
+  if (!list.length || list[list.length - 1].when) arrows.push({ when: null, mode: 'single', target: 'end_success' })
+
+  const decide = {
+    ...(oldDecide ? { id: oldDecide.id } : {}),
+    stepKey: 'decide', name: 'Decide what runs next', actionName: 'decide',
+    kind: 'auto', onError: 'stop', position: 0, values: {}, transitions: arrows
+  }
+  const removed = oldRuns.slice(list.length).map((s) => ({ id: s.id, deleted: true }))
+
+  return {
+    ...(existing && existing.id ? { id: existing.id } : {}),
+    name: ('After ' + (String(jobName || '').trim() || 'job ' + jobId)).slice(0, 255),
+    description: 'Made by the "After this job" setting of job ' + jobId + '.',
+    kind: 'workflow',
+    key: shortcutKey(jobId),
+    status: list.length ? 'published' : 'draft',
+    trigger: { kind: 'job', jobId: jobId, when: 'finished' },
+    steps: [decide, ...runs, ...removed]
+  }
+}
+
+/**
+ * The rules a shortcut workflow says, or `{ editedElsewhere: true }` when it
+ * has been reshaped so that this form can no longer say it truthfully.
+ * A draft (rules removed) reads as no rules.
+ */
+export function workflowToRules(workflow) {
+  if (!workflow) return { rules: [] }
+  const t = workflow.trigger || {}
+  const steps = Array.isArray(workflow.steps) ? workflow.steps : []
+  const decide = steps.find((s) => s.stepKey === 'decide')
+  const others = steps.filter((s) => s.stepKey !== 'decide')
+  const fits = t.kind === 'job' && t.when === 'finished' && decide && decide.actionName === 'decide' &&
+    others.every((s) => s.actionName === 'job-run' && s.values && s.values.jobId)
+  if (!fits) return { editedElsewhere: true, rules: [] }
+  if (workflow.status !== 'published') return { rules: [] }
+  const byKey = Object.fromEntries(others.map((s) => [s.stepKey, s]))
+  const arrows = Array.isArray(decide.transitions) ? decide.transitions : []
+  const rules = []
+  for (const a of arrows) {
+    if (a.target === 'end_success' && !a.when) continue
+    const step = byKey[a.target]
+    if (!step || a.when === undefined) return { editedElsewhere: true, rules: [] }
+    rules.push({
+      when: mapWhen(a.when, fromTriggerField),
+      run: step.values.jobId,
+      inputs: mapBindings(step.values.inputs || {}, fromTriggerBindings),
+      carry: mapBindings(step.values.carry || {}, fromTriggerBindings)
+    })
+  }
+  if (rules.length !== others.length) return { editedElsewhere: true, rules: [] }
+  return { rules }
 }
