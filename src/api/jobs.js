@@ -1,3 +1,4 @@
+import { createOptionSources } from '@xeplr/ui-utils'
 import { authFetch } from '@xeplr/ui-account'
 
 // WHERE THE JOBS API LIVES, set once by the host at registration.
@@ -73,53 +74,26 @@ export async function listOccurrences(jobId) {
 // Nothing configured for a kind → the field falls back to a plain text input.
 // That is what keeps standalone jobs honest: an empty dropdown looks broken,
 // while a text box is simply what you have when there is no catalogue.
-let _optionSources = {}
+// One copy, in @xeplr/ui-utils (createOptionSources), shared with X-Flow's
+// step editor. These names stay, so nothing that imports them changes.
+let _optionSources = createOptionSources({}, (p) => authFetch(url(p)))
 
 export function configureOptionSources(sources) {
-  _optionSources = sources || {}
+  _optionSources = createOptionSources(sources, (p) => authFetch(url(p)))
 }
 
 export function hasOptionSource(kind) {
-  return Boolean(_optionSources[kind])
+  return _optionSources.has(kind)
 }
 
-/**
- * Fetch one option list.
- *
- * `dependsOn` is passed through as a query parameter so a dependent list can
- * be narrowed — databases on the chosen connection, rather than every database
- * on every connection.
- */
-/**
- * Fetch suggestions from an option source, asked with several values at once
- * — `query` is { param: value }. Answers the list of values (strings), empty
- * when the source is not configured or something it needs is not chosen yet.
- */
-export async function fetchSuggestions(kind, query) {
-  const src = _optionSources[kind]
-  if (!src) return []
-  const pairs = Object.entries(query || {})
-  if (pairs.some(([, v]) => v === undefined || v === null || v === '')) return []
-  const q = pairs.map(([k, v]) => `&${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('')
-  const res = await authFetch(url(`${src.url}?limit=0${q}`))
-  const list = (res && res[src.key || 'dataArray']) || []
-  return list.map((o) => String(o[src.value || 'value'])).filter(Boolean)
+/** Suggestions from an option source, asked with several values at once. */
+export function fetchSuggestions(kind, query) {
+  return _optionSources.fetchSuggestions(kind, query)
 }
 
-export async function fetchOptions(kind, filter) {
-  const src = _optionSources[kind]
-  if (!src) return []
-  const q = filter && filter.value ? `&${encodeURIComponent(filter.name)}=${encodeURIComponent(filter.value)}` : ''
-  const res = await authFetch(url(`${src.url}?limit=0${q}`))
-  // `dataArray` is what genericRoute returns, so it is the default — but a
-  // hand-written endpoint answers with whatever it likes (BI's
-  // /warehouse/tables says `tables`). The host names the key rather than this
-  // package guessing, because guessing wrong yields an empty dropdown and no
-  // error, which reads as "you have none of these".
-  const rows = res[src.key || 'dataArray'] || []
-  return rows
-    .filter((r) => (filter && filter.clientKey ? r[filter.clientKey] === filter.value : true))
-    .map((r) => ({ value: r[src.value || 'id'], label: r[src.label] || r[src.value || 'id'] }))
+/** One option list; `filter` narrows a dependent one. */
+export function fetchOptions(kind, filter) {
+  return _optionSources.fetchOptions(kind, filter)
 }
 
 /**
