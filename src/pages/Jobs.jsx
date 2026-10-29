@@ -17,6 +17,7 @@ import { useRunContract } from '../useRunContract.js'
 import { useJobsUrl } from '../useJobsUrl.js'
 import { useJobChainController } from '../useJobChainController.js'
 import { acceptableFields } from '../lib/jobChainModel.js'
+import { incrementalChoices, incrementalDraft, incrementalBody } from '../lib/incrementalModel.js'
 import './Jobs.css'
 
 // SCHEDULED JOBS — @xeplr/jobs, in this product's chrome.
@@ -515,7 +516,9 @@ function JobEditor({ job, jobs, actions, onCancel, onSaved, stepKey, onStep }) {
     // Inputs the job BEFORE this one in a chain may fill (@xeplr/jobs'
     // acceptsInputs). No longer edited here — a job takes what it needs from
     // the job before through its parameters — but kept as saved.
-    acceptsInputs: Array.isArray(job?.acceptsInputs) ? job.acceptsInputs : []
+    acceptsInputs: Array.isArray(job?.acceptsInputs) ? job.acceptsInputs : [],
+    // WHICH ROWS EACH RUN TAKES — the job's decision (see incrementalModel).
+    ...incrementalDraft(job)
   }))
   const [saving, setSaving] = useState(false)
   const chain = useJobChainController(job?.id || null)
@@ -537,6 +540,12 @@ function JobEditor({ job, jobs, actions, onCancel, onSaved, stepKey, onStep }) {
     if (broken.length) {
       setStep(1)
       raiseSnackbar(`Not valid JSON: ${broken.join(', ')}`, { design: 'error' })
+      return
+    }
+    const incremental = incrementalBody(draft, action)
+    if (incremental.problem) {
+      setStep(2)
+      raiseSnackbar(incremental.problem, { design: 'error' })
       return
     }
     // The rules are checked BEFORE anything is saved, so a typo in one does
@@ -579,7 +588,8 @@ function JobEditor({ job, jobs, actions, onCancel, onSaved, stepKey, onStep }) {
         // strings is what made every number/boolean field fail validation.
         inputs: fromFieldValues(action, draft.inputs),
         // Only names that are still fields of the chosen action.
-        acceptsInputs: draft.acceptsInputs.filter((n) => acceptableFields(fields).some((f) => f.name === n))
+        acceptsInputs: draft.acceptsInputs.filter((n) => acceptableFields(fields).some((f) => f.name === n)),
+        ...incremental.body
       })
       if (!job?.id) {
         const newId = res && Array.isArray(res.updatedIds) ? res.updatedIds[0] : null
@@ -755,6 +765,38 @@ function JobEditor({ job, jobs, actions, onCancel, onSaved, stepKey, onStep }) {
           </span>
         </div>
       )}
+
+      {/* WHICH ROWS EACH RUN TAKES — only for an action that takes a range.
+          The job decides this, not the action: the same movement can run
+          nightly "since the last run" and by hand for one month. */}
+      {incrementalChoices(action).length > 0 && (() => {
+        const choices = incrementalChoices(action)
+        const on = choices.find((c) => c.value === draft.incrementalMode) || choices[0]
+        return (
+          <>
+            <div className="jb-field">
+              <label htmlFor="jb-incremental">Each run takes</label>
+              <select id="jb-incremental" value={on.value} onChange={(e) => patch({ incrementalMode: e.target.value })}>
+                {choices.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+              </select>
+              <span className="jb-help">
+                {on.help} A range given when it is started (by a workflow, or by the job before it) always wins.
+              </span>
+            </div>
+            {on.value === 'watermark' && (
+              <div className="jb-field">
+                <label htmlFor="jb-reload">Also re-read the last</label>
+                <input id="jb-reload" type="number" min="1" step="1" placeholder="—"
+                  value={draft.reloadDays} onChange={(e) => patch({ reloadDays: e.target.value })} />
+                <span className="jb-help">
+                  Days. Rows changed after they were loaded (a late payment, an edited order) are below the highest
+                  value, so they are only picked up by re-reading. Empty: no re-read.
+                </span>
+              </div>
+            )}
+          </>
+        )
+      })()}
 
       {/* RETRY — off by default. An action that failed once usually fails
           again, and silently re-running something that moves data is worse
