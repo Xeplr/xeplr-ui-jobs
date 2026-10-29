@@ -1097,7 +1097,9 @@ export default function Jobs({ breadcrumb: Breadcrumb, uploadLink } = {}) {
           // A new job filled in from a link is checked against the actions,
           // so it starts again once they have loaded.
           key={url.edit + (url.edit === 'new' && actions.length ? ':ready' : '')}
-          job={editing.id ? editing : null}
+          // A new job is passed too: it may carry its action, inputs and name
+          // from a link (newJobFrom). Without an id it is still a new job.
+          job={editing}
           jobs={jobs || []}
           actions={actions}
           stepKey={url.step}
