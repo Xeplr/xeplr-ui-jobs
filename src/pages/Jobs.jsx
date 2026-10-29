@@ -18,6 +18,7 @@ import { useJobsUrl } from '../useJobsUrl.js'
 import { useJobChainController } from '../useJobChainController.js'
 import { acceptableFields } from '../lib/jobChainModel.js'
 import { incrementalChoices, incrementalDraft, incrementalBody } from '../lib/incrementalModel.js'
+import { newJobFrom, NEW_JOB_KEYS } from '../lib/newJobModel.js'
 import './Jobs.css'
 
 // SCHEDULED JOBS — @xeplr/jobs, in this product's chrome.
@@ -907,11 +908,14 @@ export default function Jobs({ breadcrumb: Breadcrumb, uploadLink } = {}) {
   const openRuns = url.runs
   const setOpenRuns = (id) => url.set({ runs: id, log: null })
   // ?edit=new is a new job; ?edit=<id> is that job once the list has loaded.
-  const editing = url.edit === 'new' ? {}
+  // A new job may arrive filled in from a link (newJobFrom), once the actions
+  // it is checked against have loaded.
+  const editing = url.edit === 'new' ? newJobFrom(url.params, actions)
     : url.edit && jobs ? (jobs.find((j) => j.id === url.edit) || null)
     : null
   const editMissing = Boolean(url.edit && url.edit !== 'new' && jobs && !editing)
-  const setEditing = (job) => url.set({ edit: job ? (job.id || 'new') : null, step: null })
+  const setEditing = (job) => url.set(Object.assign({ edit: job ? (job.id || 'new') : null, step: null },
+    Object.fromEntries(NEW_JOB_KEYS.map((k) => [k, null]))))
   const [busyId, setBusyId] = useState(null)
   // Bumped by anything that creates an occurrence, so an OPEN history refetches
   // rather than sitting there showing the state from before Run now was pressed.
@@ -1090,7 +1094,9 @@ export default function Jobs({ breadcrumb: Breadcrumb, uploadLink } = {}) {
 
       {editing && (
         <JobEditor
-          key={url.edit}
+          // A new job filled in from a link is checked against the actions,
+          // so it starts again once they have loaded.
+          key={url.edit + (url.edit === 'new' && actions.length ? ':ready' : '')}
           job={editing.id ? editing : null}
           jobs={jobs || []}
           actions={actions}

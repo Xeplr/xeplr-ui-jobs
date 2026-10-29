@@ -103,3 +103,4 @@ export { ROUTES as jobsRoutes } from './routes.js';
 // and a copy of it in the host is a second implementation free to drift.
 export { default as CronScheduleField, CRON_PRESETS } from './components/CronScheduleField.jsx';
 export { describeCron } from './pages/jobsList.js';
+export { newJobQuery } from './lib/newJobModel.js';

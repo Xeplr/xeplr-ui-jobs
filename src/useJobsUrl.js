@@ -5,6 +5,7 @@ import { useSearchParams } from 'react-router-dom'
 // link lands on exactly this screen:
 //
 //   ?edit=<jobId> | ?edit=new   the editor, open on that job (or a new one)
+//   &action=…&inputs=…&name=…   a new job already filled in (lib/newJobModel.js)
 //   &step=job|inputs|schedule|after   its step
 //   ?runs=<jobId>               that job's run history, expanded
 //   &log=<occurrenceId>         one run's log, open
@@ -12,7 +13,7 @@ import { useSearchParams } from 'react-router-dom'
 //
 // Opening and closing things adds a history entry, so Back closes them;
 // typing and switching steps replaces it, so Back is not a keystroke undo.
-const KEYS = ['edit', 'step', 'runs', 'log', 'q', 'sort']
+const KEYS = ['edit', 'step', 'runs', 'log', 'q', 'sort', 'action', 'inputs', 'name']
 
 export function useJobsUrl() {
   const [params, setParams] = useSearchParams()
@@ -37,6 +38,8 @@ export function useJobsUrl() {
     log: read('log'),
     q: read('q') || '',
     sort: read('sort') || 'name',
+    // The raw params, for a new job filled in from the link (newJobFrom).
+    params: params,
     set: set,
     KEYS: KEYS
   }

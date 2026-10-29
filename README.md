@@ -151,6 +151,18 @@ A job's saved `acceptsInputs` (what the job before may fill) is kept as it is bu
 
 A new job with a schedule defaults to **Paused**, so it can be written now and started later. A job with no schedule is saved as `ready` and runs only when triggered.
 
+## Opening a new job already filled in
+
+A host can link straight to a new job with its action and inputs chosen, e.g. BI's "+ New job" on a movement:
+
+```js
+import { newJobQuery } from '@xeplr/ui-jobs'
+navigate(jobsPath + newJobQuery({ action: 'move-run', inputs: { moveId }, name: 'Move: Orders' }))
+// → ?edit=new&action=move-run&inputs={"moveId":"…"}&name=Move%3A%20Orders
+```
+
+The link is not trusted: an action the server does not offer, or inputs that are not a JSON object, start a blank job instead (`src/lib/newJobModel.js`).
+
 ## Option sources
 
 An input field can ask for a choice from a kind of thing — `optionsFrom: 'connections'`. This package never learns what a connection is; your app says where each kind is listed:
