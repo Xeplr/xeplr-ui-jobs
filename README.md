@@ -121,6 +121,8 @@ Every call goes through `authFetch`, which prefixes the base URL `@xeplr/ui-acco
 - **Recent runs** — the 12 latest runs across all jobs, with duration, trigger and error message.
 - **Live updates** (on by default) — polls `GET /jobs/active` every **2 s** while anything runs and every **15 s** otherwise, so a cron run that starts by itself appears; when the last run finishes, the page reloads once to pick up the final status. Rows show rows read and when the run last made progress (`1.2K rows · last seen 8 s ago`); a run with no progress for **5 minutes** (`SILENT_MS`) reads "Not responding", because the work beats on every batch it moves. Uncheck to stop polling.
 
+**On a phone** (below 640px) the search, sort and **New job** wrap onto their own lines instead of running off the edge, the table keeps scrolling sideways inside its own box, row buttons and the run-history expander become thumb-sized (40px / 32px), and the search and sort are 16px so iOS does not zoom the page. A job's description and raw cron are still in the row's tooltip, which a phone cannot show — open the job to read them.
+
 State shows **Running** over **Paused**: a pause takes effect at the next pick, and "paused" over a live run invites starting a second one. A job with no schedule has its switch off and disabled — there is nothing for the scheduler to pick.
 
 ### The editor
