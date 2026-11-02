@@ -422,3 +422,18 @@
 .jb-caret { padding: 0; }
 .jb-caret .jb-icon { transition: none; }
 .jb-linkish { padding: 0; font: inherit; color: var(--accent, #2563eb); background: none; border: 0; cursor: pointer; text-decoration: underline; }
+
+/* ── on a phone ──────────────────────────────────────────────────────────
+   The search, sort and New button wrap instead of running off the edge; the
+   table keeps scrolling sideways in its own box; every row button becomes a
+   target a thumb can hit; and fields are 16px, or iOS zooms the page on focus. */
+@media (max-width: 640px) {
+  .jb-head h1 { font-size: 22px; }
+  .jb-head-tools { flex-wrap: wrap; }
+  .jb-search { flex: 1 1 100%; min-width: 0; }
+  .jb-search, .jb-sort { font-size: 16px; min-height: 44px; }
+  .jb-primary { min-height: 44px; }
+  .jb-row-actions button { width: 40px; height: 40px; }
+  .jb-caret { width: 32px; height: 32px; }
+  .jb-editor { padding: 16px; }
+}
