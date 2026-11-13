@@ -187,6 +187,7 @@ registerJobsUI({
 
 - **A kind with no source gets a plain text input.** An empty dropdown looks broken; a text box is what you have without a catalogue.
 - A field with `dependsOn: 'connectionInfoId'` stays disabled until that field has a value, then requests `?connectionInfoId=<value>` and keeps only rows whose `connectionId` equals it.
+- A field of `type: 'array'` with `optionsFrom` is **ticks**: several chosen at once, saved as a list (`["taskie", "taskie_jobs"]`), in the options' order. A saved value the source no longer offers stays ticked, marked "not offered now", so a save never drops it silently.
 - A failed fetch says "Could not load the list" rather than showing an empty one.
 
 ## Other exports

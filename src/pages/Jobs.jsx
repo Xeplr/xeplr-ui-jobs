@@ -1,3 +1,4 @@
+import { pickedOf, toggled } from './multiPick.js'
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { fieldLabel, raiseConfirm, raiseSnackbar } from '@xeplr/ui-utils'
 import { relativeTime } from './relativeTime.js'
@@ -398,6 +399,36 @@ function RemoteSelect({ field, value, onChange, dependsOnValue }) {
       .catch(() => { if (alive) { setOptions([]); setFailed(true) } })
     return () => { alive = false }
   }, [field.optionsFrom, field.dependsOn, dependsOnValue])
+
+  // A LIST from the host's options (type 'array'): ticks, several at once.
+  if (field.type === 'array') {
+    const picked = pickedOf(value)
+    const waiting = field.dependsOn && !dependsOnValue
+    const shown = (options || []).concat(picked.filter((v) => !(options || []).some((o) => String(o.value) === v)).map((v) => ({ value: v, label: v + ' (not offered now)' })))
+    return (
+      <fieldset className="jb-field jb-field--wide jb-picks" id={id}>
+        <legend>{fieldLabel(field)}{field.required && <span className="jb-req"> *</span>}
+          {picked.length ? <span className="jb-type"> · {picked.length} chosen</span> : null}</legend>
+        {waiting ? <span className="jb-help">{`Choose ${field.dependsOn} first…`}</span>
+          : options === null ? <span className="jb-help">Loading…</span>
+          : !shown.length ? <span className="jb-help">Nothing to choose from</span>
+          : (
+            <div className="jb-picks-list">
+              {shown.map((o) => (
+                <label key={o.value} className="jb-pick">
+                  <input type="checkbox" checked={picked.includes(String(o.value))}
+                    onChange={() => onChange(toggled(picked, String(o.value), options))} />
+                  <span>{o.label}</span>
+                </label>
+              ))}
+            </div>
+          )}
+        {failed
+          ? <span className="jb-help jb-warn">Could not load the list.</span>
+          : field.description && <span className="jb-help">{field.description}</span>}
+      </fieldset>
+    )
+  }
 
   return (
     <div className="jb-field">

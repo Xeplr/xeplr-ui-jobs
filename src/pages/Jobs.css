@@ -437,3 +437,12 @@
   .jb-caret { width: 32px; height: 32px; }
   .jb-editor { padding: 16px; }
 }
+
+/* A list chosen from the host's options (an 'array' input with optionsFrom): ticks. */
+.jb-picks { border: 0; padding: 0; min-width: 0; }
+.jb-picks legend { padding: 0; margin-bottom: 5px; }
+.jb-picks-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 6px 16px; max-height: 240px; overflow: auto; }
+.jb-pick { display: flex; align-items: center; gap: 8px; min-width: 0; cursor: pointer; }
+.jb-pick span { overflow-wrap: anywhere; }
+.jb-pick input[type="checkbox"] { width: 16px; height: 16px; padding: 0; margin: 0; flex: none; accent-color: var(--accent, #2563eb); }
+.jb-pick { font-weight: 400; }
