@@ -967,6 +967,10 @@ export default function Jobs({ breadcrumb: Breadcrumb, uploadLink } = {}) {
 
   useEffect(() => { load() }, [load])
 
+  // An OPEN history follows the run list: when a run finishes, the live
+  // updates reload `runs`, and the history must not keep showing it Running.
+  useEffect(() => { setRunsVersion((v) => v + 1) }, [runs])
+
   // ── LIVE UPDATES ────────────────────────────────────────────────────────
   //
   // This used to call load() on a timer, which is three requests — the job
