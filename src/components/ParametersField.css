@@ -7,11 +7,11 @@
 }
 .jb-editor .jb-param input, .jb-editor .jb-param select { width: 100%; min-width: 0; }
 .jb-param-name { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
-.jb-param-arrow { color: var(--muted, #6b6a63); }
+.jb-param-arrow { color: var(--muted, var(--xeplr-text-secondary, #6b6a63)); }
 .jb-param-gap { min-width: 0; }
 .jb-param-remove, .jb-param-add {
-  padding: 5px 10px; font: inherit; font-size: 12px; color: var(--ink, #1a1a19);
-  background: var(--surface, #ffffff); border: 1px solid var(--hair, #e2e1d9); border-radius: 7px; cursor: pointer;
+  padding: 5px 10px; font: inherit; font-size: 12px; color: var(--ink, var(--xeplr-text-primary, #1a1a19));
+  background: var(--surface, var(--xeplr-bg-secondary, #ffffff)); border: 1px solid var(--hair, var(--xeplr-border-primary, #e2e1d9)); border-radius: 7px; cursor: pointer;
 }
 .jb-param-add { justify-self: start; font-size: 13px; }
 @media (max-width: 640px) {
@@ -23,13 +23,13 @@
 .jb-namebox-list {
   position: absolute; z-index: 20; top: calc(100% + 4px); left: 0; right: 0; margin: 0; padding: 4px;
   list-style: none; max-height: 220px; overflow: auto;
-  background: var(--surface, #ffffff); border: 1px solid var(--hair, #e2e1d9); border-radius: 8px;
+  background: var(--surface, var(--xeplr-bg-secondary, #ffffff)); border: 1px solid var(--hair, var(--xeplr-border-primary, #e2e1d9)); border-radius: 8px;
   box-shadow: 0 6px 18px rgba(0, 0, 0, .12);
 }
 .jb-namebox-list li {
   padding: 6px 8px; border-radius: 6px; cursor: pointer;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; color: var(--ink, #1a1a19);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; color: var(--ink, var(--xeplr-text-primary, #1a1a19));
 }
-.jb-namebox-list li:hover, .jb-namebox-list li[aria-selected="true"] { background: var(--xeplr-hover, #f0efe9); }
-.jb-namebox-list .jb-namebox-note { cursor: default; font-family: inherit; font-size: 12px; color: var(--muted, #6b6a63); }
+.jb-namebox-list li:hover, .jb-namebox-list li[aria-selected="true"] { background: var(--xeplr-hover, var(--xeplr-bg-hover, #f0efe9)); }
+.jb-namebox-list .jb-namebox-note { cursor: default; font-family: inherit; font-size: 12px; color: var(--muted, var(--xeplr-text-secondary, #6b6a63)); }
 .jb-namebox-list .jb-namebox-note:hover { background: none; }
