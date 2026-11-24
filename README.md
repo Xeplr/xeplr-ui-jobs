@@ -210,7 +210,7 @@ npm run dev        # http://localhost:19004
 
 ## Theming
 
-Styles read `--accent`, `--surface`, `--ink`, `--muted`, `--hair`, `--plane` and `--xeplr-*` tokens (`--xeplr-accent`, `--xeplr-accent-soft`, `--xeplr-text`, `--xeplr-text-secondary`, `--xeplr-muted-2`, `--xeplr-hover`, `--xeplr-border-secondary`, `--xeplr-border-strong`, `--xeplr-input-bg`, `--xeplr-input-border`, `--xeplr-input-text`, `--xeplr-tag-bg`, `--xeplr-tag-text`, `--xeplr-success`, `--xeplr-warning`, `--xeplr-danger`, `--xeplr-error`, `--xeplr-status-good`, `--xeplr-status-warn`, `--xeplr-status-critical` and their `-soft` variants), each with a fallback. Class names are prefixed `jb-` (page) and `csf-` (cron field).
+Styles read `--accent`, `--surface`, `--ink`, `--muted`, `--hair`, `--plane` and `--xeplr-*` tokens (`--xeplr-accent`, `--xeplr-accent-soft`, `--xeplr-text`, `--xeplr-text-secondary`, `--xeplr-muted-2`, `--xeplr-hover`, `--xeplr-border-secondary`, `--xeplr-border-strong`, `--xeplr-input-bg`, `--xeplr-input-border`, `--xeplr-input-text`, `--xeplr-tag-bg`, `--xeplr-tag-text`, `--xeplr-success`, `--xeplr-warning`, `--xeplr-danger`, `--xeplr-error`, `--xeplr-status-good`, `--xeplr-status-warn`, `--xeplr-status-critical` and their `-soft` variants), each with a fallback. Each local colour (`--ink`, `--surface`, `--hair`…) falls back to the matching `--xeplr-*` token from `@xeplr/ui-account`'s theme before its light default, so a host that sets only the theme tokens gets its own dark or light look; a host that sets the local colours keeps them. Class names are prefixed `jb-` (page) and `csf-` (cron field).
 
 ## Tests
 
