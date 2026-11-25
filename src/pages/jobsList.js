@@ -17,6 +17,29 @@ export function jobState(job) {
   return 'scheduled'
 }
 
+/**
+ * A JOB OF THE INSTALL ITSELF (@xeplr/jobs migrations/0012): listed to every
+ * company, changed by no one — the server refuses to save, pause or delete it
+ * for every caller. The screen says so rather than offering buttons that fail.
+ */
+export function isSystemJob(job) {
+  return Boolean(job && job.system)
+}
+
+/** Why a system job cannot be changed, in the words the screen shows. */
+export const SYSTEM_JOB_TEXT = 'This is a system job. It does the workflows\' due work for every company — ' +
+  'Wait boxes that run out of time, reminders and escalations, and runs that stopped halfway — ' +
+  'so it cannot be changed, paused or deleted. You can still run it now.'
+
+/** A time zone the browser can read (an IANA name such as Asia/Kolkata); blank is fine — the server's. */
+export function timezoneProblem(zone) {
+  const z = (zone || '').trim()
+  if (!z) return null
+  try { new Intl.DateTimeFormat('en-GB', { timeZone: z }); return null } catch (e) {
+    return `"${z}" is not a time zone. Use a name such as Asia/Kolkata or Europe/London, or leave it empty for the server's.`
+  }
+}
+
 export const STATE_LABELS = {
   running: 'Running',
   paused: 'Paused',

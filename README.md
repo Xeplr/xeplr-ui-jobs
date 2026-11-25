@@ -123,6 +123,8 @@ Every call goes through `authFetch`, which prefixes the base URL `@xeplr/ui-acco
 
 **On a phone** (below 640px) the search, sort and **New job** wrap onto their own lines instead of running off the edge, the table keeps scrolling sideways inside its own box, row buttons and the run-history expander become thumb-sized (40px / 32px), and the search and sort are 16px so iOS does not zoom the page. A job's description and raw cron are still in the row's tooltip, which a phone cannot show — open the job to read them.
 
+A **system job** (`system: true` from `@xeplr/jobs` — today the workflows' due work, `workflow-due`) is listed to every company with a **System** mark, **Always on** instead of the switch, and **Run now** only — no Edit, no Delete. Under the table it says why, in plain words: it does the workflows' due work for every company, so it cannot be changed, paused or deleted (the server refuses those for every caller, Super Admin included). A link to its editor (`?edit=<id>`) shows the same sentence instead of a form. A workflow "On a schedule" appears here as an ordinary job named "Workflow: <name>": pausing it pauses the workflow; its schedule is changed in the workflow.
+
 State shows **Running** over **Paused**: a pause takes effect at the next pick, and "paused" over a live run invites starting a second one. A job with no schedule has its switch off and disabled — there is nothing for the scheduler to pick.
 
 ### The editor
@@ -131,7 +133,7 @@ Three steps (four with `chainsApiBase`), all reachable at any time, with **Save 
 
 1. **Job** — name, description, action.
 2. **Inputs** — a control per field of the action's `inputSchema`: a select for `options`, true/false for `boolean`, a number input, a JSON textarea for `object` / `array` (invalid JSON blocks the save), text otherwise. Fields marked `system: true` are never shown — the server fills them, and rendering them would ask for a credential. Optional fields with a `default` are under **Advanced**, whose summary lists their values. Values are converted to the declared types on save, since `@xeplr/schema-handler` rejects `"1000"` for a number.
-3. **Schedule** — cron (`CronScheduleField`), status, **Start from** (`startAt`), **Retry on failure** (0–3, default 0), **Give up after** (`timeoutMinutes`, blank = server default of 30).
+3. **Schedule** — cron (`CronScheduleField`), **Time zone** (an IANA name such as `Asia/Kolkata`; empty = the server's; a name the browser cannot read is shown in red and Save waits), status, **Start from** (`startAt`), **Retry on failure** (0–3, default 0), **Give up after** (`timeoutMinutes`, blank = server default of 30).
    **Each run takes** (only for an action with a `window` input) — which rows each run takes, the job's decision (`incrementalMode`): *Everything, each run* (none), *Since the last successful run* (`period`), or *Continue from what is already loaded* (`watermark`, offered only when the action's `window` field says `watermark: true`, since the action has to read its own target). With `watermark`, **Also re-read the last … days** (`reloadDays`). A range given when the job is started always wins. Logic in `src/lib/incrementalModel.js`.
 4. **After this job** (`JobChainSection`, `useJobChainController`, `lib/jobChainModel.js`) — "Run another job when this one finishes", then rules checked top to bottom, first match wins. Each rule has:
    - **If**: a JSON condition, e.g. `{ "field": "status", "op": "=", "value": "success" }`, or `{ "all": [ … ] }` / `{ "any": [ … ] }`. Empty means "otherwise" and must come last.
@@ -218,7 +220,7 @@ Styles read `--accent`, `--surface`, `--ink`, `--muted`, `--hair`, `--plane` and
 npm test
 ```
 
-Plain Node scripts, no framework (`test/run.mjs` runs each `*.test.*` file): job state, `describeCron`, next-run and duration labels, latest run per job, search and sort; and the "After this job" form's rules: text to rules and back, what is refused, what the job before may fill, and rules ⇄ the workflow they are (its trigger, `when` arrows, `job-run` steps, reused and deleted steps, a draft, and every reshape that counts as edited elsewhere) (`jobChainModel.test.mjs`).
+Plain Node scripts, no framework (`test/run.mjs` runs each `*.test.*` file): job state, `describeCron`, next-run and duration labels, latest run per job, search and sort, a system job and a time zone the browser can read; and the "After this job" form's rules: text to rules and back, what is refused, what the job before may fill, and rules ⇄ the workflow they are (its trigger, `when` arrows, `job-run` steps, reused and deleted steps, a draft, and every reshape that counts as edited elsewhere) (`jobChainModel.test.mjs`).
 
 ## License
 
