@@ -7,7 +7,7 @@
 // opposite of the cron.
 import {
   jobState, describeCron, nextRunLabel, durationLabel, latestByJob, prepareJobs,
-  progressStale, lastSeenLabel, SILENT_MS
+  progressStale, lastSeenLabel, SILENT_MS, isSystemJob, SYSTEM_JOB_TEXT, timezoneProblem
 } from '../src/pages/jobsList.js'
 
 const results = []
@@ -131,6 +131,16 @@ console.log('\nsearch and sort')
   check('last seen, seconds', lastSeenLabel(at(8000), T) === 'last seen 8 s ago')
   check('last seen, minutes', lastSeenLabel(at(7 * 60000), T) === 'last seen 7 min ago')
   check('no progress yet: nothing to say', lastSeenLabel({}, T) === null && progressStale({}, T) === false)
+}
+
+console.log('\na system job, and a time zone')
+{
+  check('a system job is marked by its own flag', isSystemJob({ system: true }) === true)
+  check('an ordinary job, or a pre-tenancy one of every company, is not', isSystemJob({ mtId1: '*' }) === false && isSystemJob(null) === false)
+  check('the reason is said in plain words', /cannot be changed, paused or deleted/.test(SYSTEM_JOB_TEXT) && /run it now/.test(SYSTEM_JOB_TEXT))
+  check('empty zone: the server\'s, no problem', timezoneProblem('') === null && timezoneProblem(null) === null)
+  check('a real zone is fine', timezoneProblem('Asia/Kolkata') === null && timezoneProblem(' Europe/London ') === null)
+  check('a made-up zone is named', /"Mars\/Olympus" is not a time zone/.test(timezoneProblem('Mars/Olympus')))
 }
 
 const failed = results.filter(([, ok]) => !ok)

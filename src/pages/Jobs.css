@@ -446,3 +446,9 @@
 .jb-pick span { overflow-wrap: anywhere; }
 .jb-pick input[type="checkbox"] { width: 16px; height: 16px; padding: 0; margin: 0; flex: none; accent-color: var(--accent, var(--xeplr-accent, #2563eb)); }
 .jb-pick { font-weight: 400; }
+
+/* A system job (@xeplr/jobs migrations/0012): marked, and the reason said
+   under the table in plain words. */
+.jb-pill--system { background: var(--xeplr-tag-bg, #f0efe9); color: var(--xeplr-text-secondary, #6b6a63); margin-left: 6px; }
+.jb-system-note { margin: 8px 0 0; font-size: 13px; color: var(--muted, var(--xeplr-text-secondary, #6b6a63)); }
+.jb-help--error { color: var(--xeplr-danger, #b42318); }

@@ -9,6 +9,7 @@ import {
 } from '../api/jobs.js'
 import {
   jobState, STATE_LABELS, describeCron, nextRunLabel, durationLabel,
+  isSystemJob, SYSTEM_JOB_TEXT, timezoneProblem,
   latestByJob, prepareJobs, progressLabel, progressStale, lastSeenLabel
 } from './jobsList.js'
 import CronScheduleField from '../components/CronScheduleField.jsx'
@@ -524,6 +525,9 @@ function JobEditor({ job, jobs, actions, onCancel, onSaved, stepKey, onStep }) {
     description: job?.description || '',
     actionName: job?.actionName || '',
     schedule: job?.schedule || '',
+    // The zone the schedule is read in (@xeplr/jobs migrations/0011). Empty:
+    // the server's.
+    timezone: job?.timezone || '',
     // 'ready' | 'pause' — see xeplr-jobs migrations/0001_jobs.js. Editable
     // HERE and not only from the list, because "write it now, start it later"
     // is a normal thing to want: a job saved from this panel used to go
@@ -606,6 +610,7 @@ function JobEditor({ job, jobs, actions, onCancel, onSaved, stepKey, onStep }) {
         // as manual-only, and an empty string is a cron expression the picker
         // would try to parse.
         schedule: draft.schedule.trim() || null,
+        timezone: draft.schedule.trim() && draft.timezone.trim() ? draft.timezone.trim() : null,
         // A job with no schedule is manual-only, so 'ready' vs 'pause' says
         // nothing about it — the picker never looks at it either way. Sent as
         // 'ready' so it does not sit in the list wearing a Paused badge that
@@ -747,6 +752,19 @@ function JobEditor({ job, jobs, actions, onCancel, onSaved, stepKey, onStep }) {
       {step === 2 && (
         <>
       <CronScheduleField id="jb-sched" value={draft.schedule} onChange={(schedule) => patch({ schedule })} />
+
+      {/* WHERE "9:00" IS. A schedule is read in this zone; empty is the
+          server's, which is what every job did before there was a choice. */}
+      {draft.schedule.trim() && (
+        <div className="jb-field">
+          <label htmlFor="jb-tz">Time zone</label>
+          <input id="jb-tz" value={draft.timezone} placeholder="Asia/Kolkata"
+            onChange={(e) => patch({ timezone: e.target.value })} />
+          <span className={timezoneProblem(draft.timezone) ? 'jb-help jb-help--error' : 'jb-help'}>
+            {timezoneProblem(draft.timezone) || 'The schedule runs at these times in this zone. Empty: the server\'s own time.'}
+          </span>
+        </div>
+      )}
 
       {/* ACTIVE OR PAUSED, decided while writing the job rather than after it
           is already live — "save it, but do not start it yet" is a normal
@@ -893,7 +911,7 @@ function JobEditor({ job, jobs, actions, onCancel, onSaved, stepKey, onStep }) {
         </span>
         {/* AVAILABLE ON EVERY STEP. Changing one job's cron should not mean
             walking past its name and its inputs to reach a button. */}
-        <button type="submit" className="jb-primary" disabled={saving || !draft.actionName}>
+        <button type="submit" className="jb-primary" disabled={saving || !draft.actionName || Boolean(timezoneProblem(draft.timezone))}>
           {saving ? 'Saving…' : 'Save job'}
         </button>
       </div>
@@ -1127,7 +1145,13 @@ export default function Jobs({ breadcrumb: Breadcrumb, uploadLink } = {}) {
         </p>
       )}
 
-      {editing && (
+      {/* A link straight to a system job's editor (?edit=<id>) gets the
+          reason instead of a form whose Save would be refused. */}
+      {editing && isSystemJob(editing) && (
+        <p className="jb-system-note"><span className="jb-pill jb-pill--system">System</span> {SYSTEM_JOB_TEXT}</p>
+      )}
+
+      {editing && !isSystemJob(editing) && (
         <JobEditor
           // A new job filled in from a link is checked against the actions,
           // so it starts again once they have loaded.
@@ -1191,6 +1215,7 @@ export default function Jobs({ breadcrumb: Breadcrumb, uploadLink } = {}) {
                     <td className="jb-cell-job" title={job.description || job.name}>
                       <span className="jb-name">{job.name}</span>
                       <StatePill state={state} />
+                      {isSystemJob(job) && <span className="jb-pill jb-pill--system" title={SYSTEM_JOB_TEXT}>System</span>}
                       {/* WHAT IT HAS DONE SO FAR, next to the pill that says it
                           is running. Absent until the first throttled write
                           lands, and absent forever for an action that reports
@@ -1269,6 +1294,9 @@ export default function Jobs({ breadcrumb: Breadcrumb, uploadLink } = {}) {
                         and disabled rather than absent, which would leave a
                         hole in the column. */}
                     <td className="jb-row-toggle">
+                      {isSystemJob(job) ? (
+                        <span className="jb-dim" title={SYSTEM_JOB_TEXT}>Always on</span>
+                      ) : (
                       <label className="jb-switch"
                         title={!job.schedule
                           ? 'No schedule — there is nothing for the scheduler to pick up'
@@ -1288,6 +1316,7 @@ export default function Jobs({ breadcrumb: Breadcrumb, uploadLink } = {}) {
                           {!job.schedule ? 'No schedule' : job.status === 'pause' ? 'Paused' : 'On'}
                         </span>
                       </label>
+                      )}
                     </td>
                     {/* ICONS, with the words moved into title/aria-label.
                         Three labelled buttons per row is a paragraph of text
@@ -1300,14 +1329,19 @@ export default function Jobs({ breadcrumb: Breadcrumb, uploadLink } = {}) {
                         onClick={() => act(job.id, triggerJob, 'Could not trigger the job')}>
                         <Icon path={ICON_RUN} size={14} />
                       </button>
-                      <button type="button" disabled={busy} title="Edit" aria-label="Edit"
-                        onClick={() => setEditing(job)}>
-                        <Icon path={ICON_EDIT} />
-                      </button>
-                      <button type="button" className="jb-danger" disabled={busy}
-                        title="Delete" aria-label="Delete" onClick={() => remove(job)}>
-                        <Icon path={ICON_DELETE} />
-                      </button>
+                      {/* A system job is run, never changed: no Edit, no Delete. */}
+                      {!isSystemJob(job) && (
+                        <>
+                          <button type="button" disabled={busy} title="Edit" aria-label="Edit"
+                            onClick={() => setEditing(job)}>
+                            <Icon path={ICON_EDIT} />
+                          </button>
+                          <button type="button" className="jb-danger" disabled={busy}
+                            title="Delete" aria-label="Delete" onClick={() => remove(job)}>
+                            <Icon path={ICON_DELETE} />
+                          </button>
+                        </>
+                      )}
                     </td>
                   </tr>
                   {open && (
@@ -1322,6 +1356,11 @@ export default function Jobs({ breadcrumb: Breadcrumb, uploadLink } = {}) {
               })}
             </tbody>
           </table>
+          {/* SAID, not only hovered: why the System row has no switch, Edit
+              or Delete. */}
+          {rows.some(isSystemJob) && (
+            <p className="jb-system-note"><span className="jb-pill jb-pill--system">System</span> {SYSTEM_JOB_TEXT}</p>
+          )}
           {rows.length === 0 && (
             <div className="jb-empty jb-empty--inline">
               <p className="muted">Nothing matches “{query}”.</p>
